@@ -1,0 +1,31 @@
+//go:build feature_x
+// +build feature_x
+
+// Build constraints for feature flags
+package main
+
+import "fmt"
+
+func init() {
+    fmt.Println("Feature X is enabled!")
+    enableFeatureX()
+}
+
+func enableFeatureX() {
+    fmt.Println("Initializing feature X...")
+    // Feature-specific initialization
+}
+
+func main() {
+    fmt.Println("Application starting with feature X")
+    
+    // Feature X specific functionality
+    processWithFeatureX()
+    
+    fmt.Println("Build with: go build -tags feature_x")
+    fmt.Println("Build without: go build (feature X disabled)")
+}
+
+func processWithFeatureX() {
+    fmt.Println("Processing with enhanced feature X capabilities")
+}

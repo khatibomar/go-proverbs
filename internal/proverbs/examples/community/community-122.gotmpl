@@ -1,0 +1,87 @@
+// Assert errors for behavior, not type
+// Focus on what errors can do, not what they are
+
+// Behavior interfaces
+type Temporary interface {
+    Temporary() bool
+}
+
+type Retryable interface {
+    Retryable() bool
+}
+
+// Custom error with behaviors
+type ServiceError struct {
+    Code    int
+    Message string
+    Temp    bool
+    Retry   bool
+}
+
+func (e *ServiceError) Error() string {
+    return fmt.Sprintf("service error %d: %s", e.Code, e.Message)
+}
+
+func (e *ServiceError) Temporary() bool {
+    return e.Temp
+}
+
+func (e *ServiceError) Retryable() bool {
+    return e.Retry
+}
+
+// BAD: Checking specific error types
+func handleErrorBad(err error) string {
+    if err == nil {
+        return "success"
+    }
+    
+    // Fragile: depends on specific types
+    switch err.(type) {
+    case *ServiceError:
+        return "service error"
+    default:
+        return "unknown error type"
+    }
+}
+
+// GOOD: Checking error behavior
+func handleErrorGood(err error) string {
+    if err == nil {
+        return "success"
+    }
+    
+    // Check for temporary behavior
+    if tempErr, ok := err.(Temporary); ok && tempErr.Temporary() {
+        return "retry temporary error"
+    }
+    
+    // Check for retryable behavior
+    if retryErr, ok := err.(Retryable); ok && retryErr.Retryable() {
+        return "retry operation"
+    }
+    
+    return "permanent failure"
+}
+
+func main() {
+    errors := []error{
+        nil,
+        &ServiceError{Code: 503, Message: "temp failure", Temp: true, Retry: true},
+        &ServiceError{Code: 400, Message: "bad request", Temp: false, Retry: false},
+        fmt.Errorf("generic error"),
+    }
+    
+    for i, err := range errors {
+        fmt.Printf("Error %d: %v\n", i+1, err)
+        
+        badResult := handleErrorBad(err)
+        goodResult := handleErrorGood(err)
+        
+        fmt.Printf("  BAD (type):     %s\n", badResult)
+        fmt.Printf("  GOOD (behavior): %s\n", goodResult)
+        fmt.Println()
+    }
+    
+    fmt.Println("Lesson: Check what errors can do, not what they are")
+}

@@ -1,0 +1,54 @@
+// Strategy pattern for algorithm selection
+type SortStrategy interface {
+    Sort([]int)
+}
+
+type QuickSort struct{}
+
+func (q *QuickSort) Sort(data []int) {
+    if len(data) < 2 {
+        return
+    }
+    // Simplified quicksort implementation
+    pivot := partition(data)
+    q.Sort(data[:pivot])
+    q.Sort(data[pivot+1:])
+}
+
+type BubbleSort struct{}
+
+func (b *BubbleSort) Sort(data []int) {
+    n := len(data)
+    for i := 0; i < n-1; i++ {
+        for j := 0; j < n-i-1; j++ {
+            if data[j] > data[j+1] {
+                data[j], data[j+1] = data[j+1], data[j]
+            }
+        }
+    }
+}
+
+type Sorter struct {
+    strategy SortStrategy
+}
+
+func (s *Sorter) SetStrategy(strategy SortStrategy) {
+    s.strategy = strategy
+}
+
+func (s *Sorter) Sort(data []int) {
+    s.strategy.Sort(data)
+}
+
+func partition(data []int) int {
+    pivot := data[len(data)-1]
+    i := -1
+    for j := 0; j < len(data)-1; j++ {
+        if data[j] < pivot {
+            i++
+            data[i], data[j] = data[j], data[i]
+        }
+    }
+    data[i+1], data[len(data)-1] = data[len(data)-1], data[i+1]
+    return i + 1
+}

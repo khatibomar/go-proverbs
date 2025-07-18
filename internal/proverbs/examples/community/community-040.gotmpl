@@ -1,0 +1,22 @@
+// Avoid memory leaks with slice reslicing
+func main() {
+    // Create large slice
+    large := make([]int, 1000000)
+    for i := range large {
+        large[i] = i
+    }
+    
+    // Memory leak: keeps reference to large underlying array
+    small := large[100:110]
+    fmt.Printf("Small slice length: %d, capacity: %d\n", len(small), cap(small))
+    
+    // Fix: copy to new slice to avoid memory leak
+    smallCopy := make([]int, 10)
+    copy(smallCopy, large[100:110])
+    fmt.Printf("Small copy length: %d, capacity: %d\n", len(smallCopy), cap(smallCopy))
+    
+    // Now large can be garbage collected
+    large = nil
+    
+    fmt.Println("Memory leak avoided with copy")
+}

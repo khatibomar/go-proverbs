@@ -1,0 +1,38 @@
+// Bad: Errors without context
+func readConfig() (*Config, error) {
+	data, err := os.ReadFile("config.json")
+	if err != nil {
+		return nil, err // Lost context
+	}
+	
+	var config Config
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, err // Lost context
+	}
+	
+	return &config, nil
+}
+
+// Good: Wrap errors with context
+func readConfigWithContext() (*Config, error) {
+	data, err := os.ReadFile("config.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+	
+	var config Config
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
+	}
+	
+	return &config, nil
+}
+
+// Usage with error checking
+config, err := readConfigWithContext()
+if err != nil {
+	log.Printf("Configuration error: %v", err)
+	// Can use errors.Is() and errors.As() for specific handling
+}

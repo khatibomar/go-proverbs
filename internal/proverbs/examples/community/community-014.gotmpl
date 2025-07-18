@@ -1,0 +1,72 @@
+// Good: defer for cleanup
+func processFile(filename string) error {
+    file, err := os.Open(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close() // Always cleanup
+    
+    // Process the file
+    data, err := io.ReadAll(file)
+    if err != nil {
+        return err
+    }
+    
+    return processData(data)
+}
+
+// Good: defer for resource cleanup
+func acquireResource() error {
+    mutex.Lock()
+    defer mutex.Unlock() // Always release
+    
+    // Critical section
+    return doWork()
+}
+
+// Good: defer for logging
+func expensiveOperation() (err error) {
+    start := time.Now()
+    defer func() {
+        log.Printf("Operation took %v, error: %v", time.Since(start), err)
+    }()
+    
+    // Do expensive work
+    return performWork()
+}
+
+// Bad: defer for control flow
+func badExample() {
+    condition := true
+    
+    // Don't do this - defer is not for control flow
+    defer func() {
+        if condition {
+            doSomething()
+        }
+    }()
+    
+    // Better: handle control flow directly
+    if condition {
+        doSomething()
+    }
+}
+
+func processData(data []byte) error {
+    // Process data
+    return nil
+}
+
+func doWork() error {
+    // Do work
+    return nil
+}
+
+func performWork() error {
+    // Perform work
+    return nil
+}
+
+func doSomething() {
+    // Do something
+}

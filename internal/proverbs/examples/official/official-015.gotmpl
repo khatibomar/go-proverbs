@@ -1,0 +1,48 @@
+// Bad: Panic on errors
+func divide(a, b float64) float64 {
+	if b == 0 {
+		panic("division by zero")
+	}
+	return a / b
+}
+
+// Good: Errors are values - treat them like any other value
+func divideWithError(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
+}
+
+// Errors can be programmed like any other value
+type MathError struct {
+	Op   string
+	Args []float64
+	Err  string
+}
+
+func (e *MathError) Error() string {
+	return fmt.Sprintf("math error in %s(%v): %s", e.Op, e.Args, e.Err)
+}
+
+func safeDivide(a, b float64) (float64, error) {
+	if b == 0 {
+		return 0, &MathError{
+			Op:   "divide",
+			Args: []float64{a, b},
+			Err:  "division by zero",
+		}
+	}
+	return a / b, nil
+}
+
+// Usage - errors are just values
+result, err := safeDivide(10, 0)
+if err != nil {
+	// Handle the error value
+	if mathErr, ok := err.(*MathError); ok {
+		fmt.Printf("Math operation failed: %s\n", mathErr.Op)
+	}
+	return
+}
+fmt.Printf("Result: %f\n", result)

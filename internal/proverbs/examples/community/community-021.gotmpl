@@ -1,0 +1,25 @@
+// Health check interface
+type HealthChecker interface {
+    Check(ctx context.Context) error
+}
+
+type DBChecker struct {
+    db *sql.DB
+}
+
+func (d *DBChecker) Check(ctx context.Context) error {
+    return d.db.PingContext(ctx)
+}
+
+// Health endpoint
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+    checker := &DBChecker{db: getDB()}
+    
+    if err := checker.Check(r.Context()); err != nil {
+        w.WriteHeader(http.StatusServiceUnavailable)
+        json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy"})
+        return
+    }
+    
+    json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+}

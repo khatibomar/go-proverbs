@@ -1,0 +1,55 @@
+// Implement graceful restart with signal handling
+type Server struct {
+    server *http.Server
+}
+
+func NewServer(addr string) *Server {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/", handleRoot)
+    
+    return &Server{
+        server: &http.Server{
+            Addr:    addr,
+            Handler: mux,
+        },
+    }
+}
+
+func (s *Server) Start() {
+    go func() {
+        fmt.Printf("Server starting on %s (PID: %d)\n", s.server.Addr, os.Getpid())
+        if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            fmt.Printf("Server error: %v\n", err)
+        }
+    }()
+}
+
+func (s *Server) Stop() {
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    
+    fmt.Println("Shutting down gracefully...")
+    if err := s.server.Shutdown(ctx); err != nil {
+        fmt.Printf("Shutdown error: %v\n", err)
+    }
+}
+
+func handleRoot(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Hello! PID: %d\n", os.Getpid())
+}
+
+func main() {
+    server := NewServer(":8080")
+    server.Start()
+    
+    // Wait for interrupt signal
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+    
+    fmt.Println("Server running. Press Ctrl+C to stop.")
+    fmt.Println("Try: curl http://localhost:8080/")
+    
+    <-sigChan
+    server.Stop()
+    fmt.Println("Server stopped")
+}

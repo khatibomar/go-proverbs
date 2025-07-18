@@ -1,0 +1,52 @@
+// Use reflection sparingly and cache results
+type StructInfo struct {
+    Name   string
+    Fields []string
+}
+
+var typeCache = make(map[reflect.Type]*StructInfo)
+var cacheMutex sync.RWMutex
+
+func getStructInfo(t reflect.Type) *StructInfo {
+    cacheMutex.RLock()
+    if info, ok := typeCache[t]; ok {
+        cacheMutex.RUnlock()
+        return info
+    }
+    cacheMutex.RUnlock()
+    
+    // Expensive reflection operation
+    info := &StructInfo{
+        Name:   t.Name(),
+        Fields: make([]string, t.NumField()),
+    }
+    
+    for i := 0; i < t.NumField(); i++ {
+        info.Fields[i] = t.Field(i).Name
+    }
+    
+    cacheMutex.Lock()
+    typeCache[t] = info
+    cacheMutex.Unlock()
+    
+    return info
+}
+
+type User struct {
+    ID   int
+    Name string
+}
+
+func main() {
+    userType := reflect.TypeOf(User{})
+    
+    // First call - expensive reflection
+    info1 := getStructInfo(userType)
+    fmt.Printf("First call: %+v\n", info1)
+    
+    // Second call - from cache
+    info2 := getStructInfo(userType)
+    fmt.Printf("Second call (cached): %+v\n", info2)
+    
+    fmt.Println("\nKey point: Cache expensive reflection operations!")
+}

@@ -1,0 +1,29 @@
+// BAD: Large interface
+type DatabaseManager interface {
+	Connect() error
+	Disconnect() error
+	ExecuteQuery(string) ([]map[string]interface{}, error)
+	BackupDatabase(string) error
+	RestoreDatabase(string) error
+	OptimizeDatabase() error
+	CreateUser(string, string) error
+	DeleteUser(string) error
+	// ... 20+ more methods
+}
+
+// GOOD: Small, focused interfaces
+type QueryExecutor interface {
+	ExecuteQuery(string) ([]map[string]interface{}, error)
+}
+
+type ConnectionManager interface {
+	Connect() error
+	Disconnect() error
+}
+
+type BackupManager interface {
+	BackupDatabase(string) error
+	RestoreDatabase(string) error
+}
+
+// Easy to implement, test, and compose

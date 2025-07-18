@@ -1,0 +1,47 @@
+// Graceful degradation with fallbacks
+type UserData struct {
+    ID   string
+    Name string
+    Plan string
+}
+
+type Cache interface {
+    Get(key string) (*UserData, error)
+    Set(key string, data *UserData)
+}
+
+type Database interface {
+    Get(id string) (*UserData, error)
+}
+
+type UserService struct {
+    cache Cache
+    db    Database
+}
+
+func (s *UserService) GetUserData(id string) (*UserData, error) {
+    // Try cache first
+    if data, err := s.cache.Get(id); err == nil {
+        fmt.Println("Data from cache")
+        return data, nil
+    }
+    
+    // Fallback to database
+    if data, err := s.db.Get(id); err == nil {
+        fmt.Println("Data from database")
+        s.cache.Set(id, data) // populate cache
+        return data, nil
+    }
+    
+    // Final fallback to default data
+    fmt.Println("Using default data")
+    return getDefaultUserData(id), nil
+}
+
+func getDefaultUserData(id string) *UserData {
+    return &UserData{
+        ID:   id,
+        Name: "Guest User",
+        Plan: "free",
+    }
+}

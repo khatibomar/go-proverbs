@@ -1,0 +1,92 @@
+// Fuzzing finds security vulnerabilities and edge cases
+func ParseInput(input string) (map[string]string, error) {
+    result := make(map[string]string)
+    
+    if input == "" {
+        return result, nil
+    }
+    
+    pairs := strings.Split(input, "&")
+    for _, pair := range pairs {
+        parts := strings.SplitN(pair, "=", 2)
+        if len(parts) != 2 {
+            return nil, fmt.Errorf("invalid format: %s", pair)
+        }
+        
+        key := strings.TrimSpace(parts[0])
+        value := strings.TrimSpace(parts[1])
+        
+        if key == "" {
+            return nil, errors.New("empty key not allowed")
+        }
+        
+        result[key] = value
+    }
+    
+    return result, nil
+}
+
+// Fuzz test - Go 1.18+
+func FuzzParseInput(f *testing.F) {
+    // Seed corpus with known inputs
+    f.Add("key=value")
+    f.Add("key1=value1&key2=value2")
+    f.Add("")
+    f.Add("key=")
+    f.Add("=value")
+    f.Add("\x00\xff")
+    
+    f.Fuzz(func(t *testing.T, input string) {
+        // Ensure ParseInput doesn't panic
+        defer func() {
+            if r := recover(); r != nil {
+                t.Errorf("ParseInput panicked with input %q: %v", input, r)
+            }
+        }()
+        
+        result, err := ParseInput(input)
+        
+        // Validate invariants
+        if err == nil {
+            // If parsing succeeded, result should be valid
+            for key, value := range result {
+                if key == "" {
+                    t.Errorf("Empty key found in result for input %q", input)
+                }
+                if strings.Contains(key, "=") {
+                    t.Errorf("Key contains '=' for input %q", input)
+                }
+                _ = value // value can be anything including empty
+            }
+        }
+    })
+}
+
+// Run fuzzing:
+// go test -fuzz=FuzzParseInput
+// go test -fuzz=FuzzParseInput -fuzztime=30s
+
+// Example of vulnerable function that fuzzing would catch
+func VulnerableParser(input string) string {
+    // This has a buffer overflow vulnerability
+    if len(input) > 1000 {
+        panic("input too long") // Fuzzing would find this
+    }
+    
+    // Process input...
+    return strings.ToUpper(input)
+}
+
+func FuzzVulnerableParser(f *testing.F) {
+    f.Add("normal input")
+    
+    f.Fuzz(func(t *testing.T, input string) {
+        defer func() {
+            if r := recover(); r != nil {
+                t.Errorf("VulnerableParser panicked: %v", r)
+            }
+        }()
+        
+        VulnerableParser(input)
+    })
+}

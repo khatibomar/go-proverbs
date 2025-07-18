@@ -1,0 +1,165 @@
+// Import what you use; use what you import
+
+package main
+
+import (
+	"fmt"
+	// Good: Only import what you need
+	"strings"
+	"time"
+)
+
+// Bad: Unused imports
+/*
+import (
+	"fmt"
+	"io/ioutil"  // Not used anywhere in the code
+	"net/http"   // Not used anywhere in the code
+	"os"         // Not used anywhere in the code
+	"strings"
+	"time"
+)
+*/
+
+// Bad: Importing packages just for side effects without explicit documentation
+/*
+import (
+	"fmt"
+	_ "github.com/lib/pq"  // No comment explaining why this is imported
+	"strings"
+)
+*/
+
+// Good: Importing for side effects with clear documentation
+/*
+import (
+	"fmt"
+	// Import PostgreSQL driver for database/sql
+	_ "github.com/lib/pq"
+	"strings"
+)
+*/
+
+// Bad: Using dot imports that pollute the namespace
+/*
+import (
+	"fmt"
+	. "strings"  // Pollutes namespace, makes it unclear where functions come from
+)
+*/
+
+// Bad: Aliasing standard library packages unnecessarily
+/*
+import (
+	"fmt"
+	str "strings"  // Unnecessary alias for standard library
+)
+*/
+
+// Good: Aliasing only when necessary to avoid conflicts
+/*
+import (
+	"fmt"
+	stdpath "path"
+	"github.com/example/path"  // Custom package with same name as stdlib
+)
+*/
+
+// Function that uses all imported packages
+func demonstrateImports() {
+	// Using strings package
+	name := "  Go Programming  "
+	trimmed := strings.TrimSpace(name)
+	fmt.Println("Trimmed:", trimmed)
+	
+	// Using time package
+	now := time.Now()
+	fmt.Println("Current time:", now.Format(time.RFC3339))
+}
+
+// Bad: Function that doesn't use all available imports
+/*
+func partialImportUsage() {
+	// Only uses fmt, not strings or time
+	fmt.Println("This function doesn't use all imported packages")
+}
+*/
+
+// Good: Organizing imports by groups
+/*
+import (
+	// Standard library imports
+	"fmt"
+	"strings"
+	"time"
+	
+	// Third-party imports
+	"github.com/example/library1"
+	"github.com/example/library2"
+	
+	// Internal/local imports
+	"myapp/internal/config"
+	"myapp/pkg/util"
+)
+*/
+
+// Bad: Importing a package just for a single constant or variable
+/*
+import (
+	"fmt"
+	"net/http"  // Imported just to use http.StatusOK
+)
+
+func badConstantUsage() {
+	statusCode := http.StatusOK
+	fmt.Println("Status code:", statusCode)
+}
+*/
+
+// Good: Define your own constant if you only need one value
+const StatusOK = 200
+
+func goodConstantUsage() {
+	statusCode := StatusOK
+	fmt.Println("Status code:", statusCode)
+}
+
+// Bad: Using init functions that depend on import order
+/*
+var config map[string]string
+
+func init() {
+	// This depends on another package's init function
+	// which makes the code fragile
+	config = somepackage.GetConfig()
+}
+*/
+
+// Good: Explicit initialization
+var config map[string]string
+
+func initConfig() {
+	config = make(map[string]string)
+	config["key"] = "value"
+}
+
+func main() {
+	// Initialize explicitly
+	initConfig()
+	
+	// Use all imported packages
+	demonstrateImports()
+	
+	// Demonstrate good constant usage
+	goodConstantUsage()
+	
+	fmt.Println("\nKey points about imports:")
+	fmt.Println("1. Only import packages you actually use")
+	fmt.Println("2. Use all packages you import")
+	fmt.Println("3. Group imports logically (stdlib, third-party, internal)")
+	fmt.Println("4. Document side-effect imports with comments")
+	fmt.Println("5. Avoid dot imports that pollute the namespace")
+	fmt.Println("6. Only alias imports when necessary to avoid conflicts")
+	fmt.Println("7. Use goimports or similar tools to manage imports automatically")
+	fmt.Println("8. Consider the cost of each import on compile time and binary size")
+}

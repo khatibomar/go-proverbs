@@ -1,0 +1,54 @@
+// Command pattern for undo/redo operations
+type Command interface {
+    Execute() error
+    Undo() error
+}
+
+type AddCommand struct {
+    receiver *Calculator
+    value    int
+}
+
+func (c *AddCommand) Execute() error {
+    c.receiver.Add(c.value)
+    return nil
+}
+
+func (c *AddCommand) Undo() error {
+    c.receiver.Subtract(c.value)
+    return nil
+}
+
+type Calculator struct {
+    result int
+}
+
+func (c *Calculator) Add(value int) {
+    c.result += value
+}
+
+func (c *Calculator) Subtract(value int) {
+    c.result -= value
+}
+
+type CommandHistory struct {
+    commands []Command
+}
+
+func (h *CommandHistory) Execute(cmd Command) error {
+    if err := cmd.Execute(); err != nil {
+        return err
+    }
+    h.commands = append(h.commands, cmd)
+    return nil
+}
+
+func (h *CommandHistory) Undo() error {
+    if len(h.commands) == 0 {
+        return fmt.Errorf("no commands to undo")
+    }
+    
+    lastCmd := h.commands[len(h.commands)-1]
+    h.commands = h.commands[:len(h.commands)-1]
+    return lastCmd.Undo()
+}

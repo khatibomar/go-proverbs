@@ -1,0 +1,26 @@
+// Semaphore pattern for resource limiting
+func main() {
+    maxConcurrent := 3
+    semaphore := make(chan struct{}, maxConcurrent)
+    
+    var wg sync.WaitGroup
+    
+    // Simulate 10 tasks with limited concurrency
+    for i := 1; i <= 10; i++ {
+        wg.Add(1)
+        go func(taskID int) {
+            defer wg.Done()
+            
+            // Acquire semaphore
+            semaphore <- struct{}{}
+            defer func() { <-semaphore }() // Release
+            
+            fmt.Printf("Task %d started\n", taskID)
+            time.Sleep(time.Second) // Simulate work
+            fmt.Printf("Task %d completed\n", taskID)
+        }(i)
+    }
+    
+    wg.Wait()
+    fmt.Println("All tasks completed")
+}

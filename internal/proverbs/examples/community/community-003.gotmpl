@@ -1,0 +1,22 @@
+type CreateUserRequest struct {
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+func (r *CreateUserRequest) Validate() error {
+    if r.Name == "" {
+        return errors.New("name is required")
+    }
+    if r.Email == "" || !strings.Contains(r.Email, "@") {
+        return errors.New("valid email is required")
+    }
+    return nil
+}
+
+func CreateUser(req *CreateUserRequest) error {
+    if err := req.Validate(); err != nil {
+        return fmt.Errorf("validation failed: %w", err)
+    }
+    // Process valid input
+    return nil
+}

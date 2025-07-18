@@ -1,0 +1,59 @@
+// Implement domain events for loose coupling
+
+// Domain event
+type DomainEvent interface {
+    EventType() string
+}
+
+// Concrete domain event
+type OrderPlaced struct {
+    OrderID    string
+    CustomerID string
+    Amount     float64
+    Timestamp  time.Time
+}
+
+func (e OrderPlaced) EventType() string {
+    return "order.placed"
+}
+
+// Event publisher interface
+type EventPublisher interface {
+    Publish(event DomainEvent)
+}
+
+// Order service that publishes domain events
+type OrderService struct {
+    eventPublisher EventPublisher
+}
+
+func (s *OrderService) PlaceOrder(customerID string, amount float64) string {
+    // Process order...
+    orderID := uuid.New().String()
+    
+    // Create and publish domain event
+    event := OrderPlaced{
+        OrderID:    orderID,
+        CustomerID: customerID,
+        Amount:     amount,
+        Timestamp:  time.Now(),
+    }
+    
+    s.eventPublisher.Publish(event)
+    return orderID
+}
+
+// Loosely coupled event handlers
+type InventoryService struct{}
+
+func (s *InventoryService) HandleOrderPlaced(event OrderPlaced) {
+    fmt.Printf("Inventory: Reserving items for order %s\n", event.OrderID)
+    // Reserve inventory...
+}
+
+type NotificationService struct{}
+
+func (s *NotificationService) HandleOrderPlaced(event OrderPlaced) {
+    fmt.Printf("Notification: Sending confirmation for order %s\n", event.OrderID)
+    // Send notification...
+}

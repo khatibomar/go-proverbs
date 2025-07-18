@@ -1,0 +1,53 @@
+// Use embedding for interface composition
+type Reader interface {
+    Read([]byte) (int, error)
+}
+
+type Writer interface {
+    Write([]byte) (int, error)
+}
+
+// Compose interfaces through embedding
+type ReadWriter interface {
+    Reader
+    Writer
+}
+
+// Simple implementation
+type Buffer struct {
+    data []byte
+    pos  int
+}
+
+func (b *Buffer) Read(p []byte) (int, error) {
+    n := copy(p, b.data[b.pos:])
+    b.pos += n
+    return n, nil
+}
+
+func (b *Buffer) Write(p []byte) (int, error) {
+    b.data = append(b.data, p...)
+    return len(p), nil
+}
+
+// Function using composed interface
+func processData(rw ReadWriter) {
+    // Write data
+    data := []byte("Hello, World!")
+    rw.Write(data)
+    
+    // Read it back
+    buf := make([]byte, len(data))
+    rw.Read(buf)
+    
+    fmt.Printf("Processed: %s\n", buf)
+}
+
+func main() {
+    buffer := &Buffer{data: make([]byte, 0)}
+    
+    // Buffer implements ReadWriter through interface composition
+    processData(buffer)
+    
+    fmt.Println("Interface composition enables flexible designs")
+}

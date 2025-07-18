@@ -1,0 +1,50 @@
+// Golden files for testing complex output
+type TemplateData struct {
+    Title string
+    Items []string
+    Count int
+}
+
+func renderTemplate(data TemplateData) (string, error) {
+    tmpl := `Title: {{.Title}}
+Count: {{.Count}}
+Items:
+{{range .Items}}- {{.}}
+{{end}}`
+    
+    t, err := template.New("test").Parse(tmpl)
+    if err != nil {
+        return "", err
+    }
+    
+    var buf bytes.Buffer
+    err = t.Execute(&buf, data)
+    return buf.String(), err
+}
+
+// Golden file test (in *_test.go)
+func TestRenderWithGoldenFile(t *testing.T) {
+    data := TemplateData{Title: "Report", Items: []string{"A", "B"}, Count: 2}
+    actual, _ := renderTemplate(data)
+    
+    goldenFile := "testdata/output.golden"
+    
+    if *update {
+        os.WriteFile(goldenFile, []byte(actual), 0644)
+        return
+    }
+    
+    expected, _ := os.ReadFile(goldenFile)
+    if actual != string(expected) {
+        t.Errorf("Output mismatch\nExpected: %s\nActual: %s", expected, actual)
+    }
+}
+
+var update = flag.Bool("update", false, "update golden files")
+
+func main() {
+    data := TemplateData{Title: "Test", Items: []string{"X", "Y"}, Count: 2}
+    output, _ := renderTemplate(data)
+    fmt.Printf("Output:\n%s", output)
+    fmt.Println("\nUse: go test -update to update golden files")
+}

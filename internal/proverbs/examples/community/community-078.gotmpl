@@ -1,0 +1,88 @@
+// Implement saga pattern for distributed transactions
+type SagaStep interface {
+    Execute() error
+    Compensate() error
+}
+
+type Saga struct {
+    steps []SagaStep
+}
+
+func (s *Saga) AddStep(step SagaStep) {
+    s.steps = append(s.steps, step)
+}
+
+func (s *Saga) Execute() error {
+    for i, step := range s.steps {
+        if err := step.Execute(); err != nil {
+            fmt.Printf("Step %d failed: %v\n", i, err)
+            s.compensate(i - 1)
+            return err
+        }
+    }
+    return nil
+}
+
+func (s *Saga) compensate(lastExecuted int) {
+    for i := lastExecuted; i >= 0; i-- {
+        if err := s.steps[i].Compensate(); err != nil {
+            fmt.Printf("Compensation failed for step %d: %v\n", i, err)
+        }
+    }
+}
+
+// Example: Order processing saga
+type ReserveInventory struct {
+    ProductID string
+    reserved  bool
+}
+
+func (r *ReserveInventory) Execute() error {
+    fmt.Printf("Reserving product %s\n", r.ProductID)
+    r.reserved = true
+    return nil
+}
+
+func (r *ReserveInventory) Compensate() error {
+    if r.reserved {
+        fmt.Printf("Releasing reservation for %s\n", r.ProductID)
+        r.reserved = false
+    }
+    return nil
+}
+
+type ChargePayment struct {
+    Amount  float64
+    charged bool
+}
+
+func (c *ChargePayment) Execute() error {
+    fmt.Printf("Charging $%.2f\n", c.Amount)
+    if c.Amount > 1000 {
+        return fmt.Errorf("payment declined")
+    }
+    c.charged = true
+    return nil
+}
+
+func (c *ChargePayment) Compensate() error {
+    if c.charged {
+        fmt.Printf("Refunding $%.2f\n", c.Amount)
+        c.charged = false
+    }
+    return nil
+}
+
+func main() {
+    saga := &Saga{}
+    
+    saga.AddStep(&ReserveInventory{ProductID: "PROD-123"})
+    saga.AddStep(&ChargePayment{Amount: 1500.00}) // Will fail
+    
+    fmt.Println("Executing saga...")
+    if err := saga.Execute(); err != nil {
+        fmt.Printf("Saga failed: %v\n", err)
+    } else {
+        fmt.Println("Saga completed successfully")
+    }
+}

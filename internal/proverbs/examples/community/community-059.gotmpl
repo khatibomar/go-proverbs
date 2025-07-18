@@ -1,0 +1,41 @@
+// Escape analysis awareness for performance
+
+// Escapes to heap - pointer returned
+func bad() *int {
+    x := 42
+    return &x // x escapes to heap
+}
+
+// Stays on stack - value returned
+func good() int {
+    x := 42
+    return x // x stays on stack
+}
+
+// Escapes due to interface{}
+func badInterface(v interface{}) {
+    fmt.Println(v) // v escapes to heap
+}
+
+// Stays on stack with concrete type
+func goodConcrete(v int) {
+    fmt.Println(v) // v stays on stack
+}
+
+func main() {
+    // Check escape analysis with: go build -gcflags=-m
+    
+    // These allocate on heap
+    ptr := bad()
+    fmt.Printf("Heap allocated: %d\n", *ptr)
+    
+    // This stays on stack
+    val := good()
+    fmt.Printf("Stack allocated: %d\n", val)
+    
+    // Interface causes escape
+    badInterface(42)
+    
+    // Concrete type stays on stack
+    goodConcrete(42)
+}

@@ -1,0 +1,160 @@
+// Heap profiling for memory optimization
+
+// Memory-inefficient structure
+type InefficientStruct struct {
+    a bool    // 1 byte + 7 padding
+    b int64   // 8 bytes
+    c bool    // 1 byte + 7 padding
+    d int32   // 4 bytes + 4 padding
+    e bool    // 1 byte + 7 padding
+} // Total: 32 bytes
+
+// Memory-efficient structure (reordered fields)
+type EfficientStruct struct {
+    b int64 // 8 bytes
+    d int32 // 4 bytes
+    a bool  // 1 byte
+    c bool  // 1 byte
+    e bool  // 1 byte + 1 padding
+} // Total: 16 bytes
+
+// Object pooling to reduce allocations
+type ObjectPool struct {
+    pool sync.Pool
+}
+
+func NewObjectPool() *ObjectPool {
+    return &ObjectPool{
+        pool: sync.Pool{
+            New: func() interface{} {
+                return make([]byte, 1024) // Pre-allocated buffer
+            },
+        },
+    }
+}
+
+func (p *ObjectPool) Get() []byte {
+    return p.pool.Get().([]byte)
+}
+
+func (p *ObjectPool) Put(buf []byte) {
+    if cap(buf) == 1024 { // Only pool buffers of expected size
+        buf = buf[:0] // Reset length but keep capacity
+        p.pool.Put(buf)
+    }
+}
+
+// String interning to reduce memory
+type StringInterner struct {
+    strings map[string]string
+    mu      sync.RWMutex
+}
+
+func NewStringInterner() *StringInterner {
+    return &StringInterner{
+        strings: make(map[string]string),
+    }
+}
+
+func (si *StringInterner) Intern(s string) string {
+    si.mu.RLock()
+    if interned, exists := si.strings[s]; exists {
+        si.mu.RUnlock()
+        return interned
+    }
+    si.mu.RUnlock()
+    
+    si.mu.Lock()
+    defer si.mu.Unlock()
+    
+    // Double-check after acquiring write lock
+    if interned, exists := si.strings[s]; exists {
+        return interned
+    }
+    
+    // Create a copy to ensure we own the memory
+    interned := string([]byte(s))
+    si.strings[interned] = interned
+    return interned
+}
+
+// Memory-efficient slice operations
+func efficientSliceOps() {
+    // Pre-allocate with known capacity
+    items := make([]int, 0, 1000)
+    
+    for i := 0; i < 1000; i++ {
+        items = append(items, i)
+    }
+    
+    // Avoid memory leaks when slicing
+    // BAD: keeps reference to original large slice
+    // subset := items[100:200]
+    
+    // GOOD: copy to new slice
+    subset := make([]int, 100)
+    copy(subset, items[100:200])
+    
+    _ = subset
+}
+
+// Memory monitoring
+func trackMemoryUsage() {
+    var m1, m2 runtime.MemStats
+    
+    // Before allocation
+    runtime.GC()
+    runtime.ReadMemStats(&m1)
+    
+    // Allocate memory
+    data := make([][]byte, 1000)
+    for i := range data {
+        data[i] = make([]byte, 1024)
+    }
+    
+    // After allocation
+    runtime.ReadMemStats(&m2)
+    
+    fmt.Printf("Memory allocated: %d KB\n", (m2.Alloc-m1.Alloc)/1024)
+    fmt.Printf("Total allocations: %d\n", m2.TotalAlloc-m1.TotalAlloc)
+    fmt.Printf("Heap objects: %d\n", m2.HeapObjects-m1.HeapObjects)
+    
+    _ = data // Prevent optimization
+}
+
+// Benchmark memory allocations
+func BenchmarkAllocations(b *testing.B) {
+    b.Run("WithoutPool", func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+            buf := make([]byte, 1024)
+            _ = buf
+        }
+    })
+    
+    b.Run("WithPool", func(b *testing.B) {
+        pool := NewObjectPool()
+        for i := 0; i < b.N; i++ {
+            buf := pool.Get()
+            pool.Put(buf)
+        }
+    })
+}
+
+// Force garbage collection for testing
+func forceGC() {
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    fmt.Printf("Before GC - Alloc: %d KB, NumGC: %d\n", m.Alloc/1024, m.NumGC)
+    
+    runtime.GC()
+    
+    runtime.ReadMemStats(&m)
+    fmt.Printf("After GC - Alloc: %d KB, NumGC: %d\n", m.Alloc/1024, m.NumGC)
+}
+
+// Usage:
+// go test -memprofile=heap.prof -bench=.
+// go tool pprof heap.prof
+// (pprof) top10
+// (pprof) list functionName
+// (pprof) web

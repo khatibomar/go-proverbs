@@ -1,0 +1,35 @@
+// Context values for request-scoped data
+type contextKey string
+
+const UserIDKey contextKey = "userID"
+
+func processRequest(ctx context.Context) {
+    // Extract value from context
+    if userID, ok := ctx.Value(UserIDKey).(string); ok {
+        fmt.Printf("Processing request for user: %s\n", userID)
+    } else {
+        fmt.Println("No user ID in context")
+    }
+}
+
+func main() {
+    // Create context with value
+    ctx := context.WithValue(context.Background(), UserIDKey, "user123")
+    
+    // Pass context through call chain
+    processRequest(ctx)
+    
+    // Context without value
+    processRequest(context.Background())
+    
+    // Context with timeout
+    ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+    defer cancel()
+    
+    select {
+    case <-time.After(1 * time.Second):
+        fmt.Println("Work completed")
+    case <-ctx.Done():
+        fmt.Printf("Context cancelled: %v\n", ctx.Err())
+    }
+}

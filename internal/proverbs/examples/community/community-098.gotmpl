@@ -1,0 +1,92 @@
+// Zero-allocation string operations
+func parseKeyValue(s string) (key, value string, found bool) {
+    // Use strings.Cut instead of strings.Split for simple cases
+    before, after, found := strings.Cut(s, "=")
+    if !found {
+        return "", "", false
+    }
+    return strings.TrimSpace(before), strings.TrimSpace(after), true
+}
+
+func processFields(s string) []string {
+    // Use strings.Fields instead of strings.Split(s, " ")
+    return strings.Fields(s) // Handles multiple spaces automatically
+}
+
+func hasSubstring(s, substring string) bool {
+    // Use strings.Contains instead of strings.Index(s, sub) >= 0
+    return strings.Contains(s, substring)
+}
+
+func trimPrefix(s, prefix string) string {
+    // Use strings.TrimPrefix instead of manual checking
+    return strings.TrimPrefix(s, prefix)
+}
+
+// String builder for efficient concatenation
+func buildString(parts []string) string {
+    var builder strings.Builder
+    
+    // Pre-allocate capacity if known
+    totalLen := 0
+    for _, part := range parts {
+        totalLen += len(part)
+    }
+    builder.Grow(totalLen)
+    
+    for _, part := range parts {
+        builder.WriteString(part)
+    }
+    
+    return builder.String()
+}
+
+// Avoid string concatenation in loops
+func formatList(items []string) string {
+    if len(items) == 0 {
+        return "[]"
+    }
+    
+    var builder strings.Builder
+    builder.WriteString("[")
+    
+    for i, item := range items {
+        if i > 0 {
+            builder.WriteString(", ")
+        }
+        builder.WriteString(item)
+    }
+    
+    builder.WriteString("]")
+    return builder.String()
+}
+
+// Use byte slice operations when possible
+func processBytes(data []byte) []byte {
+    // Work with bytes directly instead of converting to string
+    if bytes.HasPrefix(data, []byte("prefix")) {
+        return bytes.TrimPrefix(data, []byte("prefix"))
+    }
+    return data
+}
+
+// Benchmark comparison
+func BenchmarkStringOps(b *testing.B) {
+    s := "key=value&another=test"
+    
+    b.Run("Cut", func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+            _, _, _ = strings.Cut(s, "=")
+        }
+    })
+    
+    b.Run("Split", func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+            parts := strings.Split(s, "=")
+            _ = parts[0]
+            if len(parts) > 1 {
+                _ = parts[1]
+            }
+        }
+    })
+}

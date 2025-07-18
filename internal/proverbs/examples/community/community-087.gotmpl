@@ -1,0 +1,71 @@
+// Property-based testing finds edge cases
+func Sort(input []int) []int {
+    result := make([]int, len(input))
+    copy(result, input)
+    sort.Ints(result)
+    return result
+}
+
+func isSorted(slice []int) bool {
+    for i := 1; i < len(slice); i++ {
+        if slice[i-1] > slice[i] {
+            return false
+        }
+    }
+    return true
+}
+
+func sameElements(a, b []int) bool {
+    if len(a) != len(b) {
+        return false
+    }
+    
+    countA := make(map[int]int)
+    countB := make(map[int]int)
+    
+    for _, v := range a {
+        countA[v]++
+    }
+    for _, v := range b {
+        countB[v]++
+    }
+    
+    return reflect.DeepEqual(countA, countB)
+}
+
+// Property-based test
+func TestSortProperty(t *testing.T) {
+    property := func(input []int) bool {
+        sorted := Sort(input)
+        return isSorted(sorted) && sameElements(input, sorted)
+    }
+    
+    if err := quick.Check(property, nil); err != nil {
+        t.Error(err)
+    }
+}
+
+// Custom generator for more targeted testing
+func TestSortWithCustomGenerator(t *testing.T) {
+    config := &quick.Config{
+        MaxCount: 1000,
+        Values: func(values []reflect.Value, rand *rand.Rand) {
+            // Generate slice with random length and values
+            length := rand.Intn(100)
+            slice := make([]int, length)
+            for i := range slice {
+                slice[i] = rand.Intn(1000) - 500 // -500 to 499
+            }
+            values[0] = reflect.ValueOf(slice)
+        },
+    }
+    
+    property := func(input []int) bool {
+        sorted := Sort(input)
+        return isSorted(sorted) && sameElements(input, sorted)
+    }
+    
+    if err := quick.Check(property, config); err != nil {
+        t.Error(err)
+    }
+}

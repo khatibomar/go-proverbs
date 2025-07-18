@@ -1,0 +1,479 @@
+// Domain-driven design patterns in Go
+
+// Value objects - immutable objects defined by their attributes
+type Email struct {
+    value string
+}
+
+func NewEmail(email string) (Email, error) {
+    if !strings.Contains(email, "@") {
+        return Email{}, fmt.Errorf("invalid email format")
+    }
+    return Email{value: email}, nil
+}
+
+func (e Email) String() string {
+    return e.value
+}
+
+func (e Email) Equals(other Email) bool {
+    return e.value == other.value
+}
+
+// Money value object
+type Money struct {
+    amount   int64  // Store as cents to avoid floating point issues
+    currency string
+}
+
+func NewMoney(amount float64, currency string) Money {
+    return Money{
+        amount:   int64(amount * 100),
+        currency: currency,
+    }
+}
+
+func (m Money) Amount() float64 {
+    return float64(m.amount) / 100
+}
+
+func (m Money) Currency() string {
+    return m.currency
+}
+
+func (m Money) Add(other Money) (Money, error) {
+    if m.currency != other.currency {
+        return Money{}, fmt.Errorf("cannot add different currencies")
+    }
+    return Money{
+        amount:   m.amount + other.amount,
+        currency: m.currency,
+    }, nil
+}
+
+// Entity - has identity and lifecycle
+type UserID struct {
+    value string
+}
+
+func NewUserID() UserID {
+    return UserID{value: fmt.Sprintf("user_%d", time.Now().UnixNano())}
+}
+
+func (id UserID) String() string {
+    return id.value
+}
+
+type User struct {
+    id       UserID
+    email    Email
+    name     string
+    balance  Money
+    version  int
+}
+
+func NewUser(email Email, name string) *User {
+    return &User{
+        id:      NewUserID(),
+        email:   email,
+        name:    name,
+        balance: NewMoney(0, "USD"),
+        version: 1,
+    }
+}
+
+func (u *User) ID() UserID {
+    return u.id
+}
+
+func (u *User) Email() Email {
+    return u.email
+}
+
+func (u *User) AddMoney(amount Money) error {
+    newBalance, err := u.balance.Add(amount)
+    if err != nil {
+        return err
+    }
+    u.balance = newBalance
+    u.version++
+    return nil
+}
+
+func (u *User) Balance() Money {
+    return u.balance
+}
+
+// Aggregate root
+type OrderID struct {
+    value string
+}
+
+func NewOrderID() OrderID {
+    return OrderID{value: fmt.Sprintf("order_%d", time.Now().UnixNano())}
+}
+
+type OrderItem struct {
+    productID string
+    quantity  int
+    price     Money
+}
+
+type OrderStatus int
+
+const (
+    OrderPending OrderStatus = iota
+    OrderConfirmed
+    OrderShipped
+    OrderDelivered
+    OrderCancelled
+)
+
+type Order struct {
+    id       OrderID
+    userID   UserID
+    items    []OrderItem
+    status   OrderStatus
+    total    Money
+    version  int
+    events   []DomainEvent
+}
+
+func NewOrder(userID UserID) *Order {
+    order := &Order{
+        id:      NewOrderID(),
+        userID:  userID,
+        items:   make([]OrderItem, 0),
+        status:  OrderPending,
+        total:   NewMoney(0, "USD"),
+        version: 1,
+    }
+    
+    order.addEvent(OrderCreatedEvent{
+        OrderID: order.id,
+        UserID:  userID,
+        Time:    time.Now(),
+    })
+    
+    return order
+}
+
+func (o *Order) AddItem(productID string, quantity int, price Money) error {
+    if o.status != OrderPending {
+        return fmt.Errorf("cannot modify confirmed order")
+    }
+    
+    item := OrderItem{
+        productID: productID,
+        quantity:  quantity,
+        price:     price,
+    }
+    
+    o.items = append(o.items, item)
+    
+    // Recalculate total
+    total := NewMoney(0, "USD")
+    for _, item := range o.items {
+        itemTotal := NewMoney(item.price.Amount()*float64(item.quantity), item.price.Currency())
+        total, _ = total.Add(itemTotal)
+    }
+    o.total = total
+    o.version++
+    
+    o.addEvent(OrderItemAddedEvent{
+        OrderID:   o.id,
+        ProductID: productID,
+        Quantity:  quantity,
+        Price:     price,
+        Time:      time.Now(),
+    })
+    
+    return nil
+}
+
+func (o *Order) Confirm() error {
+    if o.status != OrderPending {
+        return fmt.Errorf("order already processed")
+    }
+    
+    if len(o.items) == 0 {
+        return fmt.Errorf("cannot confirm empty order")
+    }
+    
+    o.status = OrderConfirmed
+    o.version++
+    
+    o.addEvent(OrderConfirmedEvent{
+        OrderID: o.id,
+        Total:   o.total,
+        Time:    time.Now(),
+    })
+    
+    return nil
+}
+
+func (o *Order) addEvent(event DomainEvent) {
+    o.events = append(o.events, event)
+}
+
+func (o *Order) GetEvents() []DomainEvent {
+    return o.events
+}
+
+func (o *Order) ClearEvents() {
+    o.events = make([]DomainEvent, 0)
+}
+
+// Domain events
+type DomainEvent interface {
+    EventType() string
+    OccurredAt() time.Time
+}
+
+type OrderCreatedEvent struct {
+    OrderID OrderID
+    UserID  UserID
+    Time    time.Time
+}
+
+func (e OrderCreatedEvent) EventType() string {
+    return "OrderCreated"
+}
+
+func (e OrderCreatedEvent) OccurredAt() time.Time {
+    return e.Time
+}
+
+type OrderItemAddedEvent struct {
+    OrderID   OrderID
+    ProductID string
+    Quantity  int
+    Price     Money
+    Time      time.Time
+}
+
+func (e OrderItemAddedEvent) EventType() string {
+    return "OrderItemAdded"
+}
+
+func (e OrderItemAddedEvent) OccurredAt() time.Time {
+    return e.Time
+}
+
+type OrderConfirmedEvent struct {
+    OrderID OrderID
+    Total   Money
+    Time    time.Time
+}
+
+func (e OrderConfirmedEvent) EventType() string {
+    return "OrderConfirmed"
+}
+
+func (e OrderConfirmedEvent) OccurredAt() time.Time {
+    return e.Time
+}
+
+// Repository pattern
+type UserRepository interface {
+    Save(user *User) error
+    FindByID(id UserID) (*User, error)
+    FindByEmail(email Email) (*User, error)
+}
+
+type OrderRepository interface {
+    Save(order *Order) error
+    FindByID(id OrderID) (*Order, error)
+    FindByUserID(userID UserID) ([]*Order, error)
+}
+
+// Domain service
+type OrderService struct {
+    userRepo  UserRepository
+    orderRepo OrderRepository
+}
+
+func NewOrderService(userRepo UserRepository, orderRepo OrderRepository) *OrderService {
+    return &OrderService{
+        userRepo:  userRepo,
+        orderRepo: orderRepo,
+    }
+}
+
+func (s *OrderService) CreateOrder(userID UserID, items []OrderItem) (*Order, error) {
+    // Verify user exists
+    user, err := s.userRepo.FindByID(userID)
+    if err != nil {
+        return nil, fmt.Errorf("user not found: %w", err)
+    }
+    
+    // Create order
+    order := NewOrder(user.ID())
+    
+    // Add items
+    for _, item := range items {
+        if err := order.AddItem(item.productID, item.quantity, item.price); err != nil {
+            return nil, err
+        }
+    }
+    
+    // Save order
+    if err := s.orderRepo.Save(order); err != nil {
+        return nil, err
+    }
+    
+    return order, nil
+}
+
+func (s *OrderService) ProcessPayment(orderID OrderID, payment Money) error {
+    order, err := s.orderRepo.FindByID(orderID)
+    if err != nil {
+        return err
+    }
+    
+    user, err := s.userRepo.FindByID(order.userID)
+    if err != nil {
+        return err
+    }
+    
+    // Check if user has sufficient balance
+    if user.Balance().Amount() < order.total.Amount() {
+        return fmt.Errorf("insufficient balance")
+    }
+    
+    // Deduct from user balance
+    deduction := NewMoney(-order.total.Amount(), order.total.Currency())
+    if err := user.AddMoney(deduction); err != nil {
+        return err
+    }
+    
+    // Confirm order
+    if err := order.Confirm(); err != nil {
+        return err
+    }
+    
+    // Save changes
+    if err := s.userRepo.Save(user); err != nil {
+        return err
+    }
+    
+    if err := s.orderRepo.Save(order); err != nil {
+        return err
+    }
+    
+    return nil
+}
+
+// Application service (use case)
+type OrderApplicationService struct {
+    orderService *OrderService
+    eventBus     EventBus
+}
+
+type EventBus interface {
+    Publish(event DomainEvent) error
+}
+
+func NewOrderApplicationService(orderService *OrderService, eventBus EventBus) *OrderApplicationService {
+    return &OrderApplicationService{
+        orderService: orderService,
+        eventBus:     eventBus,
+    }
+}
+
+func (s *OrderApplicationService) PlaceOrder(userID UserID, items []OrderItem) error {
+    order, err := s.orderService.CreateOrder(userID, items)
+    if err != nil {
+        return err
+    }
+    
+    // Publish domain events
+    for _, event := range order.GetEvents() {
+        if err := s.eventBus.Publish(event); err != nil {
+            // handle error
+            fmt.Printf("Failed to publish event: %v\n", err)
+        }
+    }
+    
+    order.ClearEvents()
+    return nil
+}
+
+// Simple in-memory implementations for demo
+type InMemoryUserRepository struct {
+    users map[string]*User
+    mu    sync.RWMutex
+}
+
+func NewInMemoryUserRepository() *InMemoryUserRepository {
+    return &InMemoryUserRepository{
+        users: make(map[string]*User),
+    }
+}
+
+func (r *InMemoryUserRepository) Save(user *User) error {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    r.users[user.ID().String()] = user
+    return nil
+}
+
+func (r *InMemoryUserRepository) FindByID(id UserID) (*User, error) {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+    
+    user, exists := r.users[id.String()]
+    if !exists {
+        return nil, fmt.Errorf("user not found")
+    }
+    return user, nil
+}
+
+func (r *InMemoryUserRepository) FindByEmail(email Email) (*User, error) {
+    r.mu.RLock()
+    defer r.mu.RUnlock()
+    
+    for _, user := range r.users {
+        if user.Email().Equals(email) {
+            return user, nil
+        }
+    }
+    return nil, fmt.Errorf("user not found")
+}
+
+// Example usage
+func demonstrateDDD() {
+    // Create repositories
+    userRepo := NewInMemoryUserRepository()
+    
+    // Create user
+    email, _ := NewEmail("john@example.com")
+    user := NewUser(email, "John Doe")
+    user.AddMoney(NewMoney(100.0, "USD"))
+    userRepo.Save(user)
+    
+    // Create order items
+    items := []OrderItem{
+        {productID: "prod1", quantity: 2, price: NewMoney(25.0, "USD")},
+        {productID: "prod2", quantity: 1, price: NewMoney(30.0, "USD")},
+    }
+    
+    fmt.Printf("User %s has balance: $%.2f\n", user.Email(), user.Balance().Amount())
+    fmt.Printf("Creating order with %d items\n", len(items))
+}
+
+// DDD patterns demonstrated:
+// 1. Value Objects (Email, Money)
+// 2. Entities (User)
+// 3. Aggregates (Order)
+// 4. Domain Events
+// 5. Repositories
+// 6. Domain Services
+// 7. Application Services
+
+// Key principles:
+// 1. Rich domain model
+// 2. Ubiquitous language
+// 3. Bounded contexts
+// 4. Domain events for decoupling
+// 5. Aggregate consistency boundaries

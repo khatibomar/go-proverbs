@@ -1,0 +1,62 @@
+// Bad: Cgo without build tags
+package crypto
+
+/*
+#include <openssl/sha.h>
+#include <stdlib.h>
+*/
+import "C"
+import "unsafe"
+
+// This will fail if OpenSSL is not available
+func HashSHA256(data []byte) []byte {
+	cData := C.CBytes(data)
+	defer C.free(cData)
+	
+	var hash [32]byte
+	C.SHA256((*C.uchar)(cData), C.size_t(len(data)), (*C.uchar)(unsafe.Pointer(&hash[0])))
+	return hash[:]
+}
+
+// Good: Cgo with build tags and fallback
+// File: crypto_cgo.go
+// +build cgo
+
+package crypto
+
+/*
+#include <openssl/sha.h>
+*/
+import "C"
+import "unsafe"
+
+func hashSHA256CGO(data []byte) []byte {
+	cData := C.CBytes(data)
+	defer C.free(cData)
+	
+	var hash [32]byte
+	C.SHA256((*C.uchar)(cData), C.size_t(len(data)), (*C.uchar)(unsafe.Pointer(&hash[0])))
+	return hash[:]
+}
+
+// File: crypto_pure.go
+// +build !cgo
+
+package crypto
+
+import (
+	"crypto/sha256"
+)
+
+func hashSHA256Pure(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
+}
+
+// File: crypto.go
+package crypto
+
+func HashSHA256(data []byte) []byte {
+	// Build tags ensure the right implementation is used
+	return hashSHA256Implementation(data)
+}

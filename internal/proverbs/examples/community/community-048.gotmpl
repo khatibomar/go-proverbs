@@ -1,0 +1,28 @@
+// Benchmark with realistic data
+func BenchmarkProcess(b *testing.B) {
+    data := generateRealisticData()
+    b.ResetTimer()
+    
+    for i := 0; i < b.N; i++ {
+        process(data)
+    }
+}
+
+func generateRealisticData() []string {
+    // Generate data similar to production
+    data := make([]string, 1000)
+    for i := range data {
+        data[i] = fmt.Sprintf("item-%d", i)
+    }
+    return data
+}
+
+func process(data []string) int {
+    count := 0
+    for _, item := range data {
+        if len(item) > 5 {
+            count++
+        }
+    }
+    return count
+}

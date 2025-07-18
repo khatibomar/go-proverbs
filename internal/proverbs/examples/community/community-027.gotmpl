@@ -1,0 +1,37 @@
+// Pipeline pattern for data transformation
+func main() {
+    input := make(chan int)
+    filtered := make(chan int)
+    output := make(chan int)
+    
+    // Stage 1: Filter
+    go func() {
+        defer close(filtered)
+        for data := range input {
+            if data%2 == 0 { // Only even numbers
+                filtered <- data
+            }
+        }
+    }()
+    
+    // Stage 2: Transform
+    go func() {
+        defer close(output)
+        for data := range filtered {
+            output <- data * 2 // Double the value
+        }
+    }()
+    
+    // Producer
+    go func() {
+        defer close(input)
+        for i := 1; i <= 10; i++ {
+            input <- i
+        }
+    }()
+    
+    // Consumer
+    for result := range output {
+        fmt.Println("Result:", result)
+    }
+}

@@ -1,0 +1,141 @@
+// gofmt's style is no one's favorite, yet gofmt is everyone's favorite
+
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Example of code before gofmt
+/*
+// Inconsistent formatting
+func messyCode(  a,b int  )int{
+  if a>b {  return a  }
+  else {return b}
+}
+
+// Inconsistent indentation
+func messyFunction() {
+    for i:=0;i<10;i++{
+  fmt.Println(i)
+      }
+}
+
+// Inconsistent spacing around operators
+func calculate(x,y int)int{
+	return x+y*2-1
+}
+
+// Inconsistent import formatting
+import(
+"fmt"
+    "strings"
+"time"
+)
+*/
+
+// Example of code after gofmt
+
+// Consistent formatting
+func cleanCode(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Consistent indentation
+func cleanFunction() {
+	for i := 0; i < 10; i++ {
+		fmt.Println(i)
+	}
+}
+
+// Consistent spacing around operators
+func calculate(x, y int) int {
+	return x + y*2 - 1
+}
+
+// Benefits of gofmt
+func demonstrateGofmtBenefits() {
+	// 1. Eliminates style debates
+	fmt.Println("1. No more debates about tabs vs spaces")
+	
+	// 2. Consistent code across the ecosystem
+	fmt.Println("2. All Go code looks the same")
+	
+	// 3. Easy to automate in editors and CI
+	fmt.Println("3. Formatting can be automated")
+	
+	// 4. Easier code reviews
+	fmt.Println("4. Code reviews focus on substance, not style")
+}
+
+// Common gofmt rules
+func gofmtRules() {
+	// Tabs for indentation
+	fmt.Println("- Uses tabs for indentation")
+	
+	// No semicolons
+	fmt.Println("- Removes unnecessary semicolons")
+	
+	// Standardized spacing
+	fmt.Println("- Standardizes spacing around operators")
+	
+	// Aligned parameter lists
+	fmt.Println("- Aligns parameter lists and declarations")
+	
+	// Standardized import grouping
+	fmt.Println("- Groups and sorts imports")
+}
+
+// Example of a multi-line string that gofmt doesn't change
+func multiLineString() string {
+	return `This is a multi-line string
+	that gofmt will not change
+		even if it has weird indentation
+	because it's a raw string literal`
+}
+
+// Example of a struct that gofmt will align
+type Person struct {
+	Name    string
+	Age     int
+	Address string
+	Phone   string
+}
+
+// Example of a complex expression that gofmt will format
+func complexExpression(a, b, c int) int {
+	return (a+b)*c - (a*b + c/2) + ((a + b + c) / 3)
+}
+
+func main() {
+	// Demonstrate clean code
+	result := cleanCode(10, 5)
+	fmt.Println("Clean code result:", result)
+	
+	// Show benefits
+	fmt.Println("\nBenefits of gofmt:")
+	demonstrateGofmtBenefits()
+	
+	// Show rules
+	fmt.Println("\nCommon gofmt rules:")
+	gofmtRules()
+	
+	// Show multi-line string
+	fmt.Println("\nMulti-line string example:")
+	fmt.Println(multiLineString())
+	
+	// Show complex expression
+	fmt.Println("\nComplex expression result:", complexExpression(3, 4, 5))
+	
+	// Key points
+	fmt.Println("\nKey points about gofmt:")
+	fmt.Println("1. Consistency is more important than personal style preferences")
+	fmt.Println("2. Automated formatting eliminates style debates")
+	fmt.Println("3. Standard formatting makes code more readable for everyone")
+	fmt.Println("4. The Go ecosystem benefits from uniform code appearance")
+	fmt.Println("5. Use gofmt (or goimports) before committing code")
+}

@@ -1,0 +1,66 @@
+// Mutation testing evaluates test quality
+// Original function
+func IsPositive(x int) bool {
+    return x > 0
+}
+
+func Abs(x int) int {
+    if x < 0 {
+        return -x
+    }
+    return x
+}
+
+// Weak test - doesn't catch boundary conditions
+func TestIsPositiveWeak(t *testing.T) {
+    if !IsPositive(5) {
+        t.Error("Expected 5 to be positive")
+    }
+    // This test would still pass if mutated to x >= 0
+}
+
+// Strong test - catches mutations
+func TestIsPositiveStrong(t *testing.T) {
+    tests := []struct {
+        input    int
+        expected bool
+    }{
+        {1, true},   // positive
+        {0, false},  // zero (boundary)
+        {-1, false}, // negative
+    }
+    
+    for _, tt := range tests {
+        if got := IsPositive(tt.input); got != tt.expected {
+            t.Errorf("IsPositive(%d) = %v, want %v", tt.input, got, tt.expected)
+        }
+    }
+}
+
+// Mutation testing would create variants like:
+// - x >= 0 (boundary mutation)
+// - x != 0 (relational mutation)
+// - true (constant mutation)
+
+// Example mutations that good tests should catch:
+func IsPositiveMutant1(x int) bool {
+    return x >= 0 // Changed > to >=
+}
+
+func IsPositiveMutant2(x int) bool {
+    return x != 0 // Changed > to !=
+}
+
+func AbsMutant(x int) int {
+    if x <= 0 { // Changed < to <=
+        return -x
+    }
+    return x
+}
+
+// To use mutation testing:
+// go get github.com/zimmski/go-mutesting
+// go-mutesting ./...
+// 
+// Good tests will fail when mutations are introduced,
+// indicating they properly test the logic

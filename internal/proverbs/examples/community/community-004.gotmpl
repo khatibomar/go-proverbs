@@ -1,0 +1,25 @@
+type Server struct {
+    port int
+    host string
+}
+
+type ServerOption func(*Server)
+
+func WithPort(port int) ServerOption {
+    return func(s *Server) { s.port = port }
+}
+
+func WithHost(host string) ServerOption {
+    return func(s *Server) { s.host = host }
+}
+
+func NewServer(opts ...ServerOption) *Server {
+    s := &Server{port: 8080, host: "localhost"}
+    for _, opt := range opts {
+        opt(s)
+    }
+    return s
+}
+
+// Usage
+server := NewServer(WithPort(9090), WithHost("0.0.0.0"))

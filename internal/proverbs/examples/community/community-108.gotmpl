@@ -1,0 +1,220 @@
+// Benchmarking best practices
+
+// Basic benchmark structure
+func BenchmarkStringConcatenation(b *testing.B) {
+    data := []string{"hello", "world", "foo", "bar"}
+    
+    b.ResetTimer() // Reset timer after setup
+    
+    for i := 0; i < b.N; i++ {
+        var result string
+        for _, s := range data {
+            result += s
+        }
+        _ = result // Prevent optimization
+    }
+}
+
+// Sub-benchmarks for comparison
+func BenchmarkStringOperations(b *testing.B) {
+    data := []string{"hello", "world", "foo", "bar"}
+    
+    b.Run("Concatenation", func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+            var result string
+            for _, s := range data {
+                result += s
+            }
+            _ = result
+        }
+    })
+    
+    b.Run("StringBuilder", func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+            var builder strings.Builder
+            for _, s := range data {
+                builder.WriteString(s)
+            }
+            _ = builder.String()
+        }
+    })
+    
+    b.Run("Join", func(b *testing.B) {
+        for i := 0; i < b.N; i++ {
+            result := strings.Join(data, "")
+            _ = result
+        }
+    })
+}
+
+// Parallel benchmarks
+func BenchmarkParallelMap(b *testing.B) {
+    m := make(map[int]string)
+    for i := 0; i < 1000; i++ {
+        m[i] = fmt.Sprintf("value-%d", i)
+    }
+    
+    b.RunParallel(func(pb *testing.PB) {
+        for pb.Next() {
+            key := rand.Intn(1000)
+            _ = m[key]
+        }
+    })
+}
+
+// Memory allocation benchmarks
+func BenchmarkAllocations(b *testing.B) {
+    b.ReportAllocs() // Report allocation statistics
+    
+    for i := 0; i < b.N; i++ {
+        data := make([]int, 1000)
+        for j := range data {
+            data[j] = j
+        }
+        _ = data
+    }
+}
+
+// Benchmark with setup and teardown
+func BenchmarkWithSetup(b *testing.B) {
+    // Setup (not timed)
+    tempDir, err := os.MkdirTemp("", "benchmark")
+    if err != nil {
+        b.Fatal(err)
+    }
+    defer os.RemoveAll(tempDir)
+    
+    filename := filepath.Join(tempDir, "test.txt")
+    
+    b.ResetTimer() // Start timing here
+    
+    for i := 0; i < b.N; i++ {
+        b.StopTimer() // Stop timing for per-iteration setup
+        data := []byte(fmt.Sprintf("test data %d", i))
+        b.StartTimer() // Resume timing
+        
+        err := os.WriteFile(filename, data, 0644)
+        if err != nil {
+            b.Fatal(err)
+        }
+    }
+}
+
+// Benchmark different data sizes
+func BenchmarkDataSizes(b *testing.B) {
+    sizes := []int{10, 100, 1000, 10000}
+    
+    for _, size := range sizes {
+        b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
+            data := make([]int, size)
+            for i := range data {
+                data[i] = i
+            }
+            
+            b.ResetTimer()
+            
+            for i := 0; i < b.N; i++ {
+                sum := 0
+                for _, v := range data {
+                    sum += v
+                }
+                _ = sum
+            }
+        })
+    }
+}
+
+// Benchmark helper functions
+func setupBenchmarkData(size int) []int {
+    data := make([]int, size)
+    for i := range data {
+        data[i] = rand.Intn(1000)
+    }
+    return data
+}
+
+// Complex benchmark with multiple metrics
+func BenchmarkComplexOperation(b *testing.B) {
+    data := setupBenchmarkData(1000)
+    
+    b.ReportAllocs()
+    b.ReportMetric(float64(len(data)), "items")
+    
+    start := time.Now()
+    
+    for i := 0; i < b.N; i++ {
+        result := processData(data)
+        _ = result
+    }
+    
+    elapsed := time.Since(start)
+    b.ReportMetric(float64(elapsed.Nanoseconds())/float64(b.N), "ns/op-custom")
+}
+
+func processData(data []int) []int {
+    result := make([]int, 0, len(data))
+    for _, v := range data {
+        if v%2 == 0 {
+            result = append(result, v*2)
+        }
+    }
+    return result
+}
+
+// Benchmark table-driven tests
+func BenchmarkTableDriven(b *testing.B) {
+    testCases := []struct {
+        name string
+        size int
+    }{
+        {"Small", 10},
+        {"Medium", 100},
+        {"Large", 1000},
+    }
+    
+    for _, tc := range testCases {
+        b.Run(tc.name, func(b *testing.B) {
+            data := setupBenchmarkData(tc.size)
+            
+            b.ResetTimer()
+            
+            for i := 0; i < b.N; i++ {
+                result := processData(data)
+                _ = result
+            }
+        })
+    }
+}
+
+// Benchmark with custom duration
+func BenchmarkCustomDuration(b *testing.B) {
+    if testing.Short() {
+        b.Skip("Skipping long benchmark in short mode")
+    }
+    
+    // This benchmark runs for a specific duration
+    timeout := time.After(5 * time.Second)
+    iterations := 0
+    
+    b.ResetTimer()
+    
+loop:
+    for i := 0; i < b.N; i++ {
+        select {
+        case <-timeout:
+            break loop
+        default:
+            // Do work
+            time.Sleep(time.Microsecond)
+            iterations++
+        }
+    }
+    
+    b.ReportMetric(float64(iterations), "iterations")
+}
+
+// Usage:
+// go test -bench=.
+// go test -bench=BenchmarkStringOperations -benchmem
+// go test -bench=. -benchtime=10s
+// go test -bench=. -cpu=1,2,4

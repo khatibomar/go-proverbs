@@ -1,0 +1,58 @@
+// Bad: Using unsafe package carelessly
+package main
+
+import (
+	"unsafe"
+	"fmt"
+)
+
+type Data struct {
+	value int64
+	name  string
+}
+
+// Dangerous: No guarantees this will work
+func unsafeStringToBytes(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&s)) // Undefined behavior!
+}
+
+// Dangerous: Pointer arithmetic
+func unsafeSliceAccess(slice []int, index int) int {
+	ptr := unsafe.Pointer(&slice[0])
+	// This can cause segfaults or memory corruption
+	return *(*int)(unsafe.Pointer(uintptr(ptr) + uintptr(index)*unsafe.Sizeof(int(0))))
+}
+
+// Good: Safe alternatives
+func safeStringToBytes(s string) []byte {
+	return []byte(s) // Safe conversion, creates copy
+}
+
+func safeSliceAccess(slice []int, index int) (int, bool) {
+	if index < 0 || index >= len(slice) {
+		return 0, false
+	}
+	return slice[index], true
+}
+
+// When unsafe might be justified:
+// - Performance-critical code with proven bottlenecks
+// - Interfacing with C libraries
+// - Implementing low-level data structures
+
+// Remember:
+// - unsafe code can break with any Go version update
+// - Memory corruption bugs are hard to debug
+// - Race conditions become more dangerous
+// - Garbage collector assumptions may be violated
+
+func main() {
+	// This might work today, but could break tomorrow
+	s := "hello"
+	b := unsafeStringToBytes(s)
+	fmt.Printf("Unsafe: %v\n", b)
+	
+	// This will always work
+	b2 := safeStringToBytes(s)
+	fmt.Printf("Safe: %v\n", b2)
+}

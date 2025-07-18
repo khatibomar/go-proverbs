@@ -1,0 +1,74 @@
+// Reflection is never clear
+// Use reflection sparingly - it obscures intent and hurts performance
+
+type Person struct {
+    Name string
+    Age  int
+}
+
+// UNCLEAR: Using reflection
+func setFieldReflection(obj interface{}, fieldName string, value interface{}) error {
+    v := reflect.ValueOf(obj).Elem()
+    field := v.FieldByName(fieldName)
+    if !field.IsValid() || !field.CanSet() {
+        return fmt.Errorf("cannot set field %s", fieldName)
+    }
+    field.Set(reflect.ValueOf(value))
+    return nil
+}
+
+// CLEAR: Direct access
+func setPersonName(p *Person, name string) {
+    p.Name = name
+}
+
+// UNCLEAR: Generic reflection-based validator
+func validateReflection(obj interface{}) error {
+    v := reflect.ValueOf(obj).Elem()
+    if v.FieldByName("Name").String() == "" {
+        return fmt.Errorf("name cannot be empty")
+    }
+    if v.FieldByName("Age").Int() < 0 {
+        return fmt.Errorf("age cannot be negative")
+    }
+    return nil
+}
+
+// CLEAR: Specific validation
+func validatePerson(p *Person) error {
+    if p.Name == "" {
+        return fmt.Errorf("name cannot be empty")
+    }
+    if p.Age < 0 {
+        return fmt.Errorf("age cannot be negative")
+    }
+    return nil
+}
+
+func main() {
+    person := &Person{Name: "John", Age: 30}
+    
+    // Reflection approach - unclear and slow
+    setFieldReflection(person, "Name", "Jane")
+    fmt.Printf("After reflection: %+v\n", person)
+    
+    // Direct approach - clear and fast
+    setPersonName(person, "Alice")
+    fmt.Printf("After direct access: %+v\n", person)
+    
+    // Validation comparison
+    invalidPerson := &Person{Name: "", Age: -5}
+    
+    if err := validateReflection(invalidPerson); err != nil {
+        fmt.Printf("Reflection validation: %v\n", err)
+    }
+    
+    if err := validatePerson(invalidPerson); err != nil {
+        fmt.Printf("Direct validation: %v\n", err)
+    }
+    
+    fmt.Println("\nKey points:")
+    fmt.Println("- Reflection obscures intent")
+    fmt.Println("- Direct access is clearer and faster")
+    fmt.Println("- Use reflection only for generic libraries")
+}

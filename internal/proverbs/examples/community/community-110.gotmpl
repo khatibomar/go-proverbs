@@ -1,0 +1,209 @@
+// Don't just check errors, handle them gracefully
+
+package main
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+// Bad: Just checking errors without proper handling
+func badErrorHandling() {
+	file, err := os.Open("non-existent-file.txt")
+	if err != nil {
+		// Just logging and continuing is often insufficient
+		log.Println("Error opening file:", err)
+		// No return, program continues with a nil file handle!
+	}
+	
+	// This will panic with nil pointer dereference
+	defer file.Close()
+	
+	// More operations with the file...
+}
+
+// Good: Graceful error handling with context and recovery
+func goodErrorHandling() error {
+	file, err := os.Open("non-existent-file.txt")
+	if err != nil {
+		// Add context to the error
+		return fmt.Errorf("failed to open configuration file: %w", err)
+	}
+	defer file.Close()
+	
+	// Continue with file operations...
+	return nil
+}
+
+// Custom error types for better error handling
+type NotFoundError struct {
+	Resource string
+	ID       string
+}
+
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("%s with ID %s not found", e.Resource, e.ID)
+}
+
+// IsNotFound checks if an error is a NotFoundError
+func IsNotFound(err error) bool {
+	_, ok := err.(NotFoundError)
+	return ok
+}
+
+// Retry mechanism for transient errors
+func withRetry(fn func() error, attempts int, delay time.Duration) error {
+	var err error
+	
+	for i := 0; i < attempts; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		
+		// Check if error is worth retrying
+		if errors.Is(err, io.EOF) || errors.Is(err, context.DeadlineExceeded) {
+			log.Printf("Attempt %d failed with error: %v. Retrying in %v...", i+1, err, delay)
+			time.Sleep(delay)
+			continue
+		}
+		
+		// Don't retry for permanent errors
+		return err
+	}
+	
+	return fmt.Errorf("operation failed after %d attempts: %w", attempts, err)
+}
+
+// Graceful degradation example
+func fetchUserData(userID string) (map[string]interface{}, error) {
+	// Try primary data source
+	data, err := fetchFromDatabase(userID)
+	if err == nil {
+		return data, nil
+	}
+	
+	// Log the primary source error
+	log.Printf("Primary data source error: %v. Falling back to cache.", err)
+	
+	// Try fallback data source
+	cachedData, cacheErr := fetchFromCache(userID)
+	if cacheErr == nil {
+		return cachedData, nil
+	}
+	
+	// Both sources failed
+	return nil, fmt.Errorf("failed to fetch user data: primary: %v, cache: %v", err, cacheErr)
+}
+
+// Mock functions for the example
+func fetchFromDatabase(userID string) (map[string]interface{}, error) {
+	return nil, errors.New("database connection timeout")
+}
+
+func fetchFromCache(userID string) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"user_id": userID,
+		"name":    "Cached User",
+		"email":   "user@example.com",
+	}, nil
+}
+
+// Transaction handling with proper cleanup
+func safeTransaction(db *sql.DB) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	
+	// Ensure transaction is handled properly
+	defer func() {
+		// Note: err is the named return value
+		if err != nil {
+			rbErr := tx.Rollback()
+			if rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+				log.Printf("Failed to rollback transaction: %v", rbErr)
+			}
+		}
+	}()
+	
+	// Perform database operations...
+	
+	return tx.Commit()
+}
+
+// Safe file operations with cleanup
+func safeFileWrite(filename string, data []byte) error {
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp(filepath.Dir(filename), "*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	tmpName := tmpFile.Name()
+	
+	// Ensure cleanup on any error
+	defer func() {
+		tmpFile.Close()
+		if err != nil {
+			os.Remove(tmpName) // Clean up on error
+		}
+	}()
+	
+	// Write data
+	_, err = tmpFile.Write(data)
+	if err != nil {
+		return fmt.Errorf("failed to write data: %w", err)
+	}
+	
+	// Close before renaming
+	if err = tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temporary file: %w", err)
+	}
+	
+	// Atomic rename
+	if err = os.Rename(tmpName, filename); err != nil {
+		return fmt.Errorf("failed to rename temporary file: %w", err)
+	}
+	
+	return nil
+}
+
+func main() {
+	// Example usage
+	err := goodErrorHandling()
+	if err != nil {
+		fmt.Println("Handled error gracefully:", err)
+	}
+	
+	// Retry example
+	retryErr := withRetry(func() error {
+		return io.EOF // Simulating a transient error
+	}, 3, time.Second)
+	
+	if retryErr != nil {
+		fmt.Println("Retry failed:", retryErr)
+	}
+	
+	// Graceful degradation example
+	userData, err := fetchUserData("user123")
+	if err != nil {
+		fmt.Println("Failed to get user data:", err)
+	} else {
+		fmt.Println("Successfully retrieved user data (possibly from fallback):", userData)
+	}
+	
+	fmt.Println("\nKey points about graceful error handling:")
+	fmt.Println("1. Add context to errors with fmt.Errorf and %w")
+	fmt.Println("2. Use custom error types for better error classification")
+	fmt.Println("3. Implement retry mechanisms for transient errors")
+	fmt.Println("4. Provide graceful degradation with fallbacks")
+	fmt.Println("5. Always clean up resources even when errors occur")
+	fmt.Println("6. Use errors.Is() and errors.As() for proper error checking")
+}

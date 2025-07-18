@@ -1,0 +1,75 @@
+{{define "proverb-content"}}
+<article>
+    <header style="margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #eee;">
+        <h1 style="color: #333; margin-bottom: 15px;">{{.Proverb.Title}}</h1>
+        
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; color: #666; font-size: 0.9em;">
+            <span><strong>ID:</strong> #{{.Proverb.ID}}</span>
+            <span><strong>Source:</strong> {{.Proverb.Source}}</span>
+            {{if .Proverb.Author}}<span><strong>Author:</strong> {{.Proverb.Author}}</span>{{end}}
+            {{if .Proverb.Category}}<span><strong>Category:</strong> <a href="/categories/{{.Proverb.Category}}">{{.Proverb.Category}}</a></span>{{end}}
+        </div>
+    </header>
+    
+    <div style="margin: 30px 0;">
+        <blockquote style="font-size: 1.2em; font-style: italic; color: #444; margin: 0; padding: 20px; background: #f9f9f9; border-left: 4px solid #007acc; border-radius: 4px;">
+            {{.Proverb.Text}}
+        </blockquote>
+    </div>
+    
+    {{if .Proverb.Explanation}}
+    <section style="margin: 30px 0;">
+        <h2 style="color: #333; margin-bottom: 15px;">Explanation</h2>
+        <div style="line-height: 1.6; color: #555;">
+            {{.Proverb.Explanation}}
+        </div>
+    </section>
+    {{end}}
+    
+    {{if .Proverb.Example}}
+    <section style="margin: 30px 0;">
+        <h2 style="color: #333; margin-bottom: 15px;">Example</h2>
+        <pre style="border-radius: 4px; overflow-x: auto; margin: 0;"><code class="language-go">{{.Proverb.Example}}</code></pre>
+    </section>
+    {{end}}
+    
+    {{if .Proverb.Tags}}
+    <section style="margin: 30px 0;">
+        <h3 style="color: #333; margin-bottom: 10px;">Tags</h3>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            {{range .Proverb.Tags}}
+            <a href="/tags/{{.}}" style="background: #e7f3ff; color: #0066cc; padding: 4px 8px; border-radius: 12px; font-size: 0.85em; text-decoration: none; transition: background-color 0.2s;">{{.}}</a>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+    
+
+</article>
+
+<nav style="margin: 40px 0; padding: 20px 0; border-top: 1px solid #eee; text-align: center;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        {{if .PrevProverb}}
+        <a href="/proverbs/{{.PrevProverb.ID}}" style="background: #007acc; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none;">
+            ← Previous: {{.PrevProverb.Title}}
+        </a>
+        {{else}}
+        <span></span>
+        {{end}}
+        
+        <span></span>
+        
+        {{if .NextProverb}}
+        <a href="/proverbs/{{.NextProverb.ID}}" style="background: #007acc; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none;">
+            Next: {{.NextProverb.Title}} →
+        </a>
+        {{else}}
+        <span></span>
+        {{end}}
+    </div>
+</nav>
+
+<div style="margin: 30px 0; text-align: center;">
+    <a href="/" style="color: #007acc; text-decoration: none;">← Back to home</a>
+</div>
+{{end}}

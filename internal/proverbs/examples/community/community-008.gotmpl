@@ -1,0 +1,17 @@
+// +build dev
+
+func debugLog(msg string) {
+    fmt.Printf("[DEBUG] %s\n", msg)
+}
+
+// +build !dev
+
+func debugLog(msg string) {
+    // No-op in production
+}
+
+// +build integration
+
+func runTests() {
+    fmt.Println("Running integration tests")
+}

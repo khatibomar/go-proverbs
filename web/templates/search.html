@@ -1,0 +1,56 @@
+{{define "search-content"}}
+<h1>Search Results</h1>
+
+{{if .Query}}
+<p>Showing results for: <strong>"{{.Query}}"</strong></p>
+{{end}}
+
+{{if .Proverbs}}
+<div style="margin: 20px 0; padding: 15px; background: #f0f8ff; border-radius: 5px; border-left: 4px solid #007acc;">
+    Found <strong>{{len .Proverbs}} proverbs</strong> matching your search
+</div>
+
+<div style="margin: 30px 0;">
+    {{range .Proverbs}}
+    <article style="background: #fff; padding: 25px; margin: 20px 0; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h3><a href="/proverb/{{.ID}}">{{.Title}}</a></h3>
+        <blockquote style="font-style: italic; color: #555; margin: 15px 0; padding-left: 20px; border-left: 3px solid #ccc;">
+            {{.Text}}
+        </blockquote>
+        
+        {{if .Explanation}}
+        <div style="margin: 15px 0; color: #666;">
+            <strong>Explanation:</strong> {{.Explanation}}
+        </div>
+        {{end}}
+        
+        <div style="margin-top: 15px; font-size: 0.9em; color: #999;">
+            {{if .Author}}<span>By {{.Author}}</span> • {{end}}
+            <span>{{.Source}}</span>
+            {{if .Category}} • Category: <a href="/category/{{.Category}}">{{.Category}}</a>{{end}}
+            {{if .Tags}} • Tags: {{range $i, $tag := .Tags}}{{if $i}}, {{end}}{{$tag}}{{end}}{{end}}
+        </div>
+    </article>
+    {{end}}
+</div>
+{{else}}
+<div style="text-align: center; padding: 40px; color: #666;">
+    {{if .Query}}
+    <h3>No results found</h3>
+    <p>No proverbs match your search for "{{.Query}}". Try different keywords or browse by category.</p>
+    {{else}}
+    <h3>Enter a search term</h3>
+    <p>Use the search box above to find proverbs by title, content, author, or tags.</p>
+    {{end}}
+    
+    <div style="margin-top: 20px;">
+        <a href="/categories" style="color: #007acc; text-decoration: none; margin-right: 15px;">Browse Categories</a>
+        <a href="/random" style="color: #007acc; text-decoration: none;">Random Proverb</a>
+    </div>
+</div>
+{{end}}
+
+<div style="margin: 30px 0; text-align: center;">
+    <a href="/" style="color: #007acc; text-decoration: none;">← Back to home</a>
+</div>
+{{end}}

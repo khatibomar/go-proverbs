@@ -1,0 +1,41 @@
+// Circuit breaker pattern for resilience
+type State int
+
+const (
+    Closed State = iota
+    Open
+    HalfOpen
+)
+
+type CircuitBreaker struct {
+    failures     int
+    lastFailTime time.Time
+    state        State
+    threshold    int
+    timeout      time.Duration
+}
+
+func (cb *CircuitBreaker) Call(fn func() error) error {
+    if cb.state == Open {
+        if time.Since(cb.lastFailTime) > cb.timeout {
+            cb.state = HalfOpen
+        } else {
+            return errors.New("circuit breaker is open")
+        }
+    }
+    
+    err := fn()
+    if err != nil {
+        cb.failures++
+        cb.lastFailTime = time.Now()
+        if cb.failures >= cb.threshold {
+            cb.state = Open
+        }
+        return err
+    }
+    
+    // Success - reset
+    cb.failures = 0
+    cb.state = Closed
+    return nil
+}

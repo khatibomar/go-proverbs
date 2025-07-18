@@ -1,0 +1,77 @@
+// Implement aggregate roots for consistency boundaries
+
+// LineItem represents an individual product in an order
+type LineItem struct {
+    ProductID  string
+    Quantity   int
+    UnitPrice  float64
+}
+
+func (li LineItem) Total() float64 {
+    return float64(li.Quantity) * li.UnitPrice
+}
+
+// Order is an aggregate root that maintains consistency
+// for all entities within its boundary
+type Order struct {
+    ID         string
+    CustomerID string
+    Status     string
+    LineItems  []LineItem
+    CreatedAt  time.Time
+}
+
+// NewOrder creates a new order with validation
+func NewOrder(customerID string) *Order {
+    return &Order{
+        ID:         uuid.New().String(),
+        CustomerID: customerID,
+        Status:     "draft",
+        LineItems:  []LineItem{},
+        CreatedAt:  time.Now(),
+    }
+}
+
+// AddItem adds a product to the order with validation
+func (o *Order) AddItem(productID string, quantity int, price float64) error {
+    // Validate order state
+    if o.Status != "draft" {
+        return errors.New("cannot modify a non-draft order")
+    }
+    
+    // Validate item
+    if quantity <= 0 {
+        return errors.New("quantity must be positive")
+    }
+    
+    // Add or update line item
+    for i, item := range o.LineItems {
+        if item.ProductID == productID {
+            o.LineItems[i].Quantity += quantity
+            return nil
+        }
+    }
+    
+    // Add new line item
+    o.LineItems = append(o.LineItems, LineItem{
+        ProductID: productID,
+        Quantity:  quantity,
+        UnitPrice: price,
+    })
+    
+    return nil
+}
+
+// Submit changes order status with validation
+func (o *Order) Submit() error {
+    if o.Status != "draft" {
+        return errors.New("only draft orders can be submitted")
+    }
+    
+    if len(o.LineItems) == 0 {
+        return errors.New("cannot submit empty order")
+    }
+    
+    o.Status = "submitted"
+    return nil
+}

@@ -1,0 +1,83 @@
+// Use CQRS for read/write separation
+// Commands modify state, Queries read state
+
+// Write side - Commands
+type CreateUserCommand struct {
+    ID    string
+    Name  string
+    Email string
+}
+
+type CommandHandler struct {
+    users map[string]*User
+}
+
+func (h *CommandHandler) Handle(cmd CreateUserCommand) error {
+    h.users[cmd.ID] = &User{ID: cmd.ID, Name: cmd.Name, Email: cmd.Email}
+    fmt.Printf("User created: %s\n", cmd.ID)
+    return nil
+}
+
+// Read side - Queries
+type GetUserQuery struct {
+    ID string
+}
+
+type UserView struct {
+    ID          string
+    DisplayName string
+    ContactInfo string
+}
+
+type QueryHandler struct {
+    views map[string]*UserView
+}
+
+func (h *QueryHandler) Handle(query GetUserQuery) (*UserView, error) {
+    if view, exists := h.views[query.ID]; exists {
+        return view, nil
+    }
+    return nil, fmt.Errorf("user not found: %s", query.ID)
+}
+
+// Projection from write to read model
+func (h *QueryHandler) ProjectUser(user *User) {
+    h.views[user.ID] = &UserView{
+        ID:          user.ID,
+        DisplayName: user.Name,
+        ContactInfo: user.Email,
+    }
+}
+
+type User struct {
+    ID    string
+    Name  string
+    Email string
+}
+
+func main() {
+    cmdHandler := &CommandHandler{users: make(map[string]*User)}
+    queryHandler := &QueryHandler{views: make(map[string]*UserView)}
+    
+    // Execute command
+    cmd := CreateUserCommand{ID: "1", Name: "John Doe", Email: "john@example.com"}
+    if err := cmdHandler.Handle(cmd); err != nil {
+        fmt.Printf("Command failed: %v\n", err)
+        return
+    }
+    
+    // Project to read model
+    if user, exists := cmdHandler.users["1"]; exists {
+        queryHandler.ProjectUser(user)
+    }
+    
+    // Execute query
+    query := GetUserQuery{ID: "1"}
+    result, err := queryHandler.Handle(query)
+    if err != nil {
+        fmt.Printf("Query failed: %v\n", err)
+        return
+    }
+    
+    fmt.Printf("Query result: %+v\n", result)
+}

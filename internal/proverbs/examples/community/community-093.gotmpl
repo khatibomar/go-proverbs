@@ -1,0 +1,107 @@
+// Adaptive timeouts based on observed latency
+type AdaptiveTimeout struct {
+    mu            sync.RWMutex
+    avgLatency    time.Duration
+    timeoutFactor float64
+    minTimeout    time.Duration
+    maxTimeout    time.Duration
+    samples       []time.Duration
+    maxSamples    int
+}
+
+func NewAdaptiveTimeout(factor float64, min, max time.Duration) *AdaptiveTimeout {
+    return &AdaptiveTimeout{
+        timeoutFactor: factor,
+        minTimeout:    min,
+        maxTimeout:    max,
+        maxSamples:    10,
+    }
+}
+
+func (at *AdaptiveTimeout) GetTimeout() time.Duration {
+    at.mu.RLock()
+    defer at.mu.RUnlock()
+    
+    if at.avgLatency == 0 {
+        return at.minTimeout
+    }
+    
+    timeout := time.Duration(float64(at.avgLatency) * at.timeoutFactor)
+    
+    if timeout < at.minTimeout {
+        return at.minTimeout
+    }
+    if timeout > at.maxTimeout {
+        return at.maxTimeout
+    }
+    
+    return timeout
+}
+
+func (at *AdaptiveTimeout) UpdateLatency(latency time.Duration) {
+    at.mu.Lock()
+    defer at.mu.Unlock()
+    
+    // Add sample
+    at.samples = append(at.samples, latency)
+    if len(at.samples) > at.maxSamples {
+        at.samples = at.samples[1:]
+    }
+    
+    // Calculate average
+    var total time.Duration
+    for _, sample := range at.samples {
+        total += sample
+    }
+    at.avgLatency = total / time.Duration(len(at.samples))
+}
+
+// HTTP client with adaptive timeout
+type AdaptiveHTTPClient struct {
+    client  *http.Client
+    timeout *AdaptiveTimeout
+}
+
+func NewAdaptiveHTTPClient() *AdaptiveHTTPClient {
+    return &AdaptiveHTTPClient{
+        client:  &http.Client{},
+        timeout: NewAdaptiveTimeout(2.0, 100*time.Millisecond, 10*time.Second),
+    }
+}
+
+func (c *AdaptiveHTTPClient) Get(url string) (*http.Response, error) {
+    start := time.Now()
+    
+    // Create context with adaptive timeout
+    ctx, cancel := context.WithTimeout(context.Background(), c.timeout.GetTimeout())
+    defer cancel()
+    
+    req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+    if err != nil {
+        return nil, err
+    }
+    
+    resp, err := c.client.Do(req)
+    
+    // Update latency stats
+    latency := time.Since(start)
+    c.timeout.UpdateLatency(latency)
+    
+    return resp, err
+}
+
+// Usage example
+func main() {
+    client := NewAdaptiveHTTPClient()
+    
+    for i := 0; i < 10; i++ {
+        resp, err := client.Get("https://httpbin.org/delay/1")
+        if err != nil {
+            fmt.Printf("Request %d failed: %v\n", i, err)
+        } else {
+            resp.Body.Close()
+            fmt.Printf("Request %d succeeded, timeout: %v\n", i, client.timeout.GetTimeout())
+        }
+        time.Sleep(100 * time.Millisecond)
+    }
+}

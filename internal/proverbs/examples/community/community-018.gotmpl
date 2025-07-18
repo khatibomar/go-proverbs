@@ -1,0 +1,16 @@
+// Pool reuses expensive objects
+var bufferPool = sync.Pool{
+    New: func() interface{} {
+        return make([]byte, 0, 1024)
+    },
+}
+
+func processData(data []byte) []byte {
+    // Get buffer from pool
+    buf := bufferPool.Get().([]byte)
+    defer bufferPool.Put(buf[:0]) // Reset and return to pool
+    
+    // Use the buffer
+    buf = append(buf, data...)
+    return buf
+}

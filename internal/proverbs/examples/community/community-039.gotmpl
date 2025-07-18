@@ -1,0 +1,39 @@
+// String builder for efficient concatenation
+func buildString(items []string) string {
+    var builder strings.Builder
+    
+    // Pre-allocate capacity if known
+    totalLen := 0
+    for _, item := range items {
+        totalLen += len(item) + 2 // +2 for ", "
+    }
+    builder.Grow(totalLen)
+    
+    for i, item := range items {
+        if i > 0 {
+            builder.WriteString(", ")
+        }
+        builder.WriteString(item)
+    }
+    
+    return builder.String()
+}
+
+func main() {
+    items := []string{"apple", "banana", "cherry", "date", "elderberry"}
+    
+    // Efficient concatenation
+    result := buildString(items)
+    fmt.Printf("Result: %s\n", result)
+    
+    // Compare with inefficient approach
+    inefficient := ""
+    for i, item := range items {
+        if i > 0 {
+            inefficient += ", "
+        }
+        inefficient += item // Creates new string each time
+    }
+    
+    fmt.Printf("Same result: %s\n", inefficient)
+}

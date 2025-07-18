@@ -1,0 +1,21 @@
+// Structured logging with key-value pairs
+type LogEntry struct {
+    Message string                 `json:"message"`
+    Fields  map[string]interface{} `json:"fields"`
+}
+
+func logInfo(msg string, fields map[string]interface{}) {
+    entry := LogEntry{
+        Message: msg,
+        Fields:  fields,
+    }
+    data, _ := json.Marshal(entry)
+    fmt.Println(string(data))
+}
+
+// Usage
+logInfo("User login", map[string]interface{}{
+    "user_id": "123",
+    "ip":      "192.168.1.1",
+    "success": true,
+})

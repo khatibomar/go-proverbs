@@ -1,0 +1,203 @@
+// Cgo must always be guarded with build tags
+
+// This file demonstrates how to properly use build tags with cgo
+
+// +build cgo
+
+package main
+
+/*
+#include <stdio.h>
+#include <stdlib.h>
+
+// Simple C function
+int add_numbers(int a, int b) {
+    return a + b;
+}
+
+// C function that returns a string
+char* get_greeting() {
+    return "Hello from C";
+}
+*/
+import "C" // This is the cgo import
+import (
+	"fmt"
+	"runtime"
+	"unsafe"
+)
+
+// BAD APPROACH: Using cgo without build tags
+// This code would fail to compile on platforms where cgo is not available
+// or when CGO_ENABLED=0
+/*
+func badCgoUsage() {
+	// This will fail if cgo is not available
+	result := C.add_numbers(C.int(5), C.int(7))
+	fmt.Println("Result:", int(result))
+	
+	// This will also fail
+	greeting := C.GoString(C.get_greeting())
+	fmt.Println(greeting)
+}
+*/
+
+// GOOD APPROACH: Using build tags and providing fallbacks
+
+// Function that uses cgo, protected by build tags
+func addWithCgo(a, b int) int {
+	// This code only compiles when cgo is available
+	return int(C.add_numbers(C.int(a), C.int(b)))
+}
+
+// Function that gets a greeting from C
+func getGreetingWithCgo() string {
+	// This code only compiles when cgo is available
+	return C.GoString(C.get_greeting())
+}
+
+// Memory management with cgo
+func allocateMemoryWithCgo(size int) unsafe.Pointer {
+	// Allocate memory in C
+	return C.malloc(C.size_t(size))
+}
+
+func freeMemoryWithCgo(ptr unsafe.Pointer) {
+	// Free memory allocated in C
+	C.free(ptr)
+}
+
+// BETTER APPROACH: Providing pure Go fallbacks in separate files
+
+// In a separate file with build tag: // +build !cgo
+/*
+package main
+
+// Pure Go implementation as fallback
+func addWithCgo(a, b int) int {
+	return a + b
+}
+
+func getGreetingWithCgo() string {
+	return "Hello from Go (cgo not available)"
+}
+
+func allocateMemoryWithCgo(size int) unsafe.Pointer {
+	// Use Go's memory allocation instead
+	mem := make([]byte, size)
+	return unsafe.Pointer(&mem[0])
+}
+
+func freeMemoryWithCgo(ptr unsafe.Pointer) {
+	// Go's GC will handle this
+}
+*/
+
+// Guidelines for using cgo
+func cgoGuidelines() {
+	fmt.Println("Guidelines for using cgo:")
+	fmt.Println("1. Always use build tags to guard cgo code")
+	fmt.Println("2. Provide pure Go fallbacks when possible")
+	fmt.Println("3. Keep cgo boundary small to minimize overhead")
+	fmt.Println("4. Always free C allocated memory")
+	fmt.Println("5. Be aware of cgo performance overhead")
+	fmt.Println("6. Test with CGO_ENABLED=0 to ensure fallbacks work")
+}
+
+// Example of proper file structure for cgo projects:
+/*
+- mypackage/
+  - cgo.go       // +build cgo
+  - nocgo.go     // +build !cgo
+  - common.go    // common code for both builds
+*/
+
+// Checking if cgo is available at runtime
+func isCgoAvailable() bool {
+	// This is just a demonstration - in reality, you'd check at build time with tags
+	return runtime.Compiler != "gccgo" // Simplified check
+}
+
+func main() {
+	// This code only runs when cgo is available due to build tags
+	fmt.Println("Running with cgo enabled")
+	
+	// Use cgo functions
+	result := addWithCgo(5, 7)
+	fmt.Printf("5 + 7 = %d\n", result)
+	
+	greeting := getGreetingWithCgo()
+	fmt.Println(greeting)
+	
+	// Demonstrate memory management
+	size := 1024
+	mem := allocateMemoryWithCgo(size)
+	fmt.Printf("Allocated %d bytes at %v\n", size, mem)
+	
+	// Always free C allocated memory
+	freeMemoryWithCgo(mem)
+	fmt.Println("Memory freed")
+	
+	// Show guidelines
+	fmt.Println()
+	cgoGuidelines()
+	
+	fmt.Println("\nKey points:")
+	fmt.Println("1. Cgo introduces platform dependencies")
+	fmt.Println("2. Build tags ensure code only compiles when cgo is available")
+	fmt.Println("3. Cgo has significant performance overhead")
+	fmt.Println("4. Always provide pure Go fallbacks when possible")
+	fmt.Println("5. Cgo complicates cross-compilation")
+	fmt.Println("6. Memory management across Go/C boundary requires care")
+}
+
+// Example of a cross-platform approach:
+/*
+// file: mylib.go
+package mylib
+
+// Interface that both cgo and pure Go implementations satisfy
+type Processor interface {
+	Process(data []byte) []byte
+}
+
+// Factory function that returns appropriate implementation
+func NewProcessor() Processor {
+	// Implementation selection happens in separate files
+	return newProcessorImpl()
+}
+
+// file: processor_cgo.go
+// +build cgo
+
+package mylib
+
+import "C" // cgo implementation
+
+type cgoProcessor struct{}
+
+func newProcessorImpl() Processor {
+	return &cgoProcessor{}
+}
+
+func (p *cgoProcessor) Process(data []byte) []byte {
+	// Use C library for processing
+	// ...
+}
+
+// file: processor_go.go
+// +build !cgo
+
+package mylib
+
+type goProcessor struct{}
+
+func newProcessorImpl() Processor {
+	return &goProcessor{}
+}
+
+func (p *goProcessor) Process(data []byte) []byte {
+	// Pure Go implementation
+	// ...
+}
+*/

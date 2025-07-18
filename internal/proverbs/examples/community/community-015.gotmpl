@@ -1,0 +1,15 @@
+// Buffered channel allows non-blocking sends
+jobs := make(chan string, 100)
+
+go func() {
+    for job := range jobs {
+        fmt.Println("Processing:", job)
+    }
+}()
+
+// Producer can send without blocking
+jobs <- "task1" // Non-blocking
+jobs <- "task2" // Non-blocking
+
+// Compare with unbuffered
+sync := make(chan string) // Blocks on send until receiver ready

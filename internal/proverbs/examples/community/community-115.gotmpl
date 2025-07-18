@@ -1,0 +1,176 @@
+// Syscall must always be guarded with build tags
+
+// This file demonstrates how to properly use build tags with syscalls
+
+// +build linux darwin
+// +build !windows
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"syscall"
+)
+
+// BAD APPROACH: Using syscalls without build tags
+// This code would fail to compile on platforms where these syscalls don't exist
+/*
+func badSyscallUsage() {
+	// This will fail on Windows and other non-Unix platforms
+	fd, err := syscall.Open("/tmp/test.txt", syscall.O_RDONLY, 0)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	defer syscall.Close(fd)
+
+	// More syscalls that are platform-specific
+	syscall.Fchmod(fd, 0644)
+}
+*/
+
+// GOOD APPROACH: Using build tags and platform-specific code
+
+// Unix-specific file permission setting
+func setUnixPermissions(path string, mode os.FileMode) error {
+	// This code only compiles on Unix-like systems due to build tags
+	return syscall.Chmod(path, syscall.Mode(mode))
+}
+
+// Unix-specific process handling
+func getProcessOwner() (int, int, error) {
+	// Get user and group IDs - Unix specific
+	return syscall.Getuid(), syscall.Getgid(), nil
+}
+
+// Unix-specific file locking
+func lockFile(f *os.File) error {
+	// Apply advisory lock - Unix specific
+	return syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+}
+
+// Unix-specific file unlocking
+func unlockFile(f *os.File) error {
+	// Remove advisory lock - Unix specific
+	return syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+}
+
+// Unix-specific signal handling
+func setupSignalHandler() {
+	sigChan := make(chan os.Signal, 1)
+	
+	// Set up signal handling for SIGTERM and SIGINT
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+	
+	go func() {
+		sig := <-sigChan
+		fmt.Printf("Received signal: %v\n", sig)
+		// Cleanup and exit
+		os.Exit(0)
+	}()
+}
+
+// BETTER APPROACH: Using os package for cross-platform compatibility when possible
+
+// Cross-platform file operations using os package
+func crossPlatformFileOps(filename string) error {
+	// The os package provides a cross-platform abstraction
+	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	
+	// Use os functions instead of direct syscalls when possible
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	
+	// Change permissions using os package
+	return os.Chmod(filename, info.Mode()|0200) // Add write permission
+}
+
+// Guidelines for using syscalls
+func syscallGuidelines() {
+	fmt.Println("Guidelines for using syscalls:")
+	fmt.Println("1. Always use build tags to guard platform-specific syscalls")
+	fmt.Println("2. Create separate files for different platforms")
+	fmt.Println("3. Use the os package when possible for cross-platform code")
+	fmt.Println("4. Test on all target platforms")
+	fmt.Println("5. Document platform limitations clearly")
+}
+
+// Example of platform-specific file structure:
+/*
+- mypackage/
+  - file_unix.go    // +build linux darwin
+  - file_windows.go // +build windows
+  - file_darwin.go  // +build darwin
+  - file_linux.go   // +build linux
+  - file.go         // platform-independent code
+*/
+
+func main() {
+	// This code only runs on Unix-like systems due to build tags
+	fmt.Println("Running Unix-specific code")
+	
+	// Get process owner
+	uid, gid, err := getProcessOwner()
+	if err == nil {
+		fmt.Printf("Process running as UID: %d, GID: %d\n", uid, gid)
+	}
+	
+	// Create a test file
+	testFile := "/tmp/syscall-test.txt"
+	f, err := os.Create(testFile)
+	if err == nil {
+		defer f.Close()
+		defer os.Remove(testFile)
+		
+		// Lock the file
+		err = lockFile(f)
+		if err == nil {
+			fmt.Println("File locked successfully")
+			// Unlock before closing
+			unlockFile(f)
+		}
+	}
+	
+	// Show guidelines
+	fmt.Println()
+	syscallGuidelines()
+	
+	fmt.Println("\nKey points:")
+	fmt.Println("1. Syscalls are platform-specific and can break cross-platform compatibility")
+	fmt.Println("2. Build tags ensure code only compiles on supported platforms")
+	fmt.Println("3. The os package provides cross-platform abstractions when possible")
+	fmt.Println("4. Separate platform-specific code into different files")
+	fmt.Println("5. Always test on all target platforms")
+}
+
+// Example of Windows-specific code in a separate file (file_windows.go):
+/*
+// +build windows
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"syscall"
+)
+
+// Windows-specific file permission setting
+func setWindowsPermissions(path string, mode os.FileMode) error {
+	// Windows uses a different permission model
+	return nil
+}
+
+// Windows-specific process handling
+func getProcessOwner() (int, int, error) {
+	// Windows uses different APIs for this
+	return 0, 0, nil
+}
+*/

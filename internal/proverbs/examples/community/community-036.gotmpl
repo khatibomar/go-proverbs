@@ -1,0 +1,54 @@
+// Publish-subscribe pattern with channels
+type Message struct {
+    Topic string
+    Data  string
+}
+
+type PubSub struct {
+    subscribers map[string][]chan Message
+    mu          sync.RWMutex
+}
+
+func (ps *PubSub) Subscribe(topic string) chan Message {
+    ps.mu.Lock()
+    defer ps.mu.Unlock()
+    
+    ch := make(chan Message, 10)
+    if ps.subscribers == nil {
+        ps.subscribers = make(map[string][]chan Message)
+    }
+    ps.subscribers[topic] = append(ps.subscribers[topic], ch)
+    return ch
+}
+
+func (ps *PubSub) Publish(topic string, data string) {
+    ps.mu.RLock()
+    defer ps.mu.RUnlock()
+    
+    msg := Message{Topic: topic, Data: data}
+    for _, ch := range ps.subscribers[topic] {
+        select {
+        case ch <- msg:
+        default: // Skip if channel is full
+        }
+    }
+}
+
+func main() {
+    ps := &PubSub{}
+    
+    // Subscribe to topic
+    ch := ps.Subscribe("news")
+    
+    go func() {
+        for msg := range ch {
+            fmt.Printf("Received: %s\n", msg.Data)
+        }
+    }()
+    
+    // Publish messages
+    ps.Publish("news", "Breaking news!")
+    ps.Publish("news", "Weather update")
+    
+    time.Sleep(100 * time.Millisecond)
+}

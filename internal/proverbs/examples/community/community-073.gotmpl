@@ -1,0 +1,79 @@
+// Use sync.Cond for complex coordination
+type Queue struct {
+    mu       sync.Mutex
+    notEmpty *sync.Cond
+    items    []string
+}
+
+func NewQueue() *Queue {
+    q := &Queue{items: make([]string, 0)}
+    q.notEmpty = sync.NewCond(&q.mu)
+    return q
+}
+
+func (q *Queue) Put(item string) {
+    q.mu.Lock()
+    defer q.mu.Unlock()
+    
+    q.items = append(q.items, item)
+    fmt.Printf("Put: %s (size: %d)\n", item, len(q.items))
+    
+    // Signal waiting consumers
+    q.notEmpty.Signal()
+}
+
+func (q *Queue) Get() string {
+    q.mu.Lock()
+    defer q.mu.Unlock()
+    
+    // Wait while queue is empty
+    for len(q.items) == 0 {
+        fmt.Println("Queue empty, waiting...")
+        q.notEmpty.Wait()
+    }
+    
+    item := q.items[0]
+    q.items = q.items[1:]
+    fmt.Printf("Got: %s (size: %d)\n", item, len(q.items))
+    
+    return item
+}
+
+func producer(q *Queue, items []string) {
+    for _, item := range items {
+        q.Put(item)
+        time.Sleep(100 * time.Millisecond)
+    }
+}
+
+func consumer(q *Queue, count int) {
+    for i := 0; i < count; i++ {
+        item := q.Get()
+        fmt.Printf("Processed: %s\n", item)
+        time.Sleep(200 * time.Millisecond)
+    }
+}
+
+func main() {
+    queue := NewQueue()
+    
+    var wg sync.WaitGroup
+    
+    // Start consumer first (will wait)
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        consumer(queue, 3)
+    }()
+    
+    // Start producer after delay
+    time.Sleep(500 * time.Millisecond)
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        producer(queue, []string{"item1", "item2", "item3"})
+    }()
+    
+    wg.Wait()
+    fmt.Println("Done")
+}

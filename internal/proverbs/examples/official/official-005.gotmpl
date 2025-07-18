@@ -1,0 +1,23 @@
+// BAD: Requires initialization
+type BadBuffer struct {
+	data []byte
+	init bool
+}
+
+func (b *BadBuffer) Write(p []byte) error {
+	if !b.init {
+		return errors.New("not initialized")
+	}
+	b.data = append(b.data, p...)
+	return nil
+}
+
+// GOOD: Zero value is useful
+type GoodBuffer struct {
+	data []byte
+}
+
+func (b *GoodBuffer) Write(p []byte) error {
+	b.data = append(b.data, p...) // Works immediately
+	return nil
+}

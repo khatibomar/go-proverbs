@@ -1,0 +1,39 @@
+// sync.Map for concurrent map access
+var cache sync.Map
+
+func main() {
+    var wg sync.WaitGroup
+    
+    // Writers
+    for i := 0; i < 5; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            key := fmt.Sprintf("key-%d", id)
+            value := fmt.Sprintf("value-%d", id)
+            cache.Store(key, value)
+            fmt.Printf("Stored: %s = %s\n", key, value)
+        }(i)
+    }
+    
+    // Readers
+    for i := 0; i < 3; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            key := fmt.Sprintf("key-%d", id)
+            if val, ok := cache.Load(key); ok {
+                fmt.Printf("Read: %s = %s\n", key, val)
+            }
+        }(i)
+    }
+    
+    wg.Wait()
+    
+    // Range over all entries
+    fmt.Println("All entries:")
+    cache.Range(func(k, v interface{}) bool {
+        fmt.Printf("%s: %s\n", k, v)
+        return true
+    })
+}

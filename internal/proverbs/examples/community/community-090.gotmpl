@@ -1,0 +1,83 @@
+// Chaos engineering tests system resilience
+type ChaosMiddleware struct {
+    next        http.Handler
+    failureRate float64
+    latencyMs   int
+}
+
+func NewChaosMiddleware(next http.Handler, failureRate float64, latencyMs int) *ChaosMiddleware {
+    return &ChaosMiddleware{
+        next:        next,
+        failureRate: failureRate,
+        latencyMs:   latencyMs,
+    }
+}
+
+func (c *ChaosMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    // Random failure injection
+    if rand.Float64() < c.failureRate {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte("Chaos monkey struck!"))
+        return
+    }
+    
+    // Random latency injection
+    if c.latencyMs > 0 && rand.Float64() < 0.1 {
+        delay := time.Duration(rand.Intn(c.latencyMs)) * time.Millisecond
+        time.Sleep(delay)
+    }
+    
+    c.next.ServeHTTP(w, r)
+}
+
+// Circuit breaker to handle chaos
+type CircuitBreaker struct {
+    mu           sync.Mutex
+    failures     int
+    maxFailures  int
+    timeout      time.Duration
+    lastFailTime time.Time
+    state        string // "closed", "open", "half-open"
+}
+
+func (cb *CircuitBreaker) Call(fn func() error) error {
+    cb.mu.Lock()
+    defer cb.mu.Unlock()
+    
+    if cb.state == "open" {
+        if time.Since(cb.lastFailTime) > cb.timeout {
+            cb.state = "half-open"
+        } else {
+            return errors.New("circuit breaker open")
+        }
+    }
+    
+    err := fn()
+    if err != nil {
+        cb.failures++
+        cb.lastFailTime = time.Now()
+        if cb.failures >= cb.maxFailures {
+            cb.state = "open"
+        }
+        return err
+    }
+    
+    // Success - reset
+    cb.failures = 0
+    cb.state = "closed"
+    return nil
+}
+
+// Usage example
+func main() {
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("Hello, World!"))
+    })
+    
+    // Add chaos with 10% failure rate
+    chaosHandler := NewChaosMiddleware(handler, 0.1, 100)
+    
+    http.Handle("/", chaosHandler)
+    log.Println("Chaos server starting on :8080")
+    http.ListenAndServe(":8080", nil)
+}

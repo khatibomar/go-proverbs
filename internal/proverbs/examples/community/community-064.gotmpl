@@ -1,0 +1,54 @@
+// Use context for deadlines and cancellation
+func processData(ctx context.Context, data string) <-chan string {
+    result := make(chan string, 1)
+    
+    go func() {
+        defer close(result)
+        
+        // Simulate long-running work
+        for i := 0; i < 10; i++ {
+            select {
+            case <-ctx.Done():
+                fmt.Printf("Processing cancelled: %v\n", ctx.Err())
+                return
+            default:
+                time.Sleep(100 * time.Millisecond)
+                fmt.Printf("Processing step %d\n", i+1)
+            }
+        }
+        
+        result <- "processed: " + data
+    }()
+    
+    return result
+}
+
+func main() {
+    // Example 1: Deadline
+    ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(300*time.Millisecond))
+    defer cancel()
+    
+    fmt.Println("Starting with deadline...")
+    select {
+    case result := <-processData(ctx, "important data"):
+        fmt.Printf("Result: %s\n", result)
+    case <-ctx.Done():
+        fmt.Printf("Deadline exceeded: %v\n", ctx.Err())
+    }
+    
+    // Example 2: Manual cancellation
+    ctx2, cancel2 := context.WithCancel(context.Background())
+    
+    go func() {
+        time.Sleep(200 * time.Millisecond)
+        fmt.Println("Cancelling manually...")
+        cancel2()
+    }()
+    
+    select {
+    case result := <-processData(ctx2, "other data"):
+        fmt.Printf("Result: %s\n", result)
+    case <-ctx2.Done():
+        fmt.Printf("Manually cancelled: %v\n", ctx2.Err())
+    }
+}

@@ -1,0 +1,48 @@
+// Use done channel for goroutine lifecycle management
+type Worker struct {
+    id   int
+    done chan struct{}
+}
+
+func (w *Worker) Start(workChan <-chan string) {
+    go func() {
+        defer close(w.done)
+        
+        for work := range workChan {
+            fmt.Printf("Worker %d: processing %s\n", w.id, work)
+            time.Sleep(50 * time.Millisecond) // Simulate work
+        }
+        fmt.Printf("Worker %d: finished\n", w.id)
+    }()
+}
+
+func (w *Worker) Wait() {
+    <-w.done
+}
+
+func main() {
+    workChan := make(chan string, 3)
+    
+    // Create and start workers
+    workers := []*Worker{
+        {id: 1, done: make(chan struct{})},
+        {id: 2, done: make(chan struct{})},
+    }
+    
+    for _, worker := range workers {
+        worker.Start(workChan)
+    }
+    
+    // Send work
+    for i := 1; i <= 5; i++ {
+        workChan <- fmt.Sprintf("task-%d", i)
+    }
+    close(workChan)
+    
+    // Wait for all workers using done channels
+    for _, worker := range workers {
+        worker.Wait()
+    }
+    
+    fmt.Println("All workers completed - done channels ensure clean shutdown")
+}

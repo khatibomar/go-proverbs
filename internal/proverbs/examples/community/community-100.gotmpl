@@ -1,0 +1,124 @@
+// Memory profiling to detect leaks
+
+// Memory leak detector
+type LeakDetector struct {
+    allocations map[string]int64
+    mu          sync.RWMutex
+}
+
+func NewLeakDetector() *LeakDetector {
+    return &LeakDetector{
+        allocations: make(map[string]int64),
+    }
+}
+
+func (ld *LeakDetector) Track(name string, size int64) {
+    ld.mu.Lock()
+    ld.allocations[name] += size
+    ld.mu.Unlock()
+}
+
+func (ld *LeakDetector) Release(name string, size int64) {
+    ld.mu.Lock()
+    ld.allocations[name] -= size
+    if ld.allocations[name] <= 0 {
+        delete(ld.allocations, name)
+    }
+    ld.mu.Unlock()
+}
+
+func (ld *LeakDetector) Report() {
+    ld.mu.RLock()
+    defer ld.mu.RUnlock()
+    
+    fmt.Println("Memory allocations:")
+    for name, size := range ld.allocations {
+        fmt.Printf("  %s: %d bytes\n", name, size)
+    }
+}
+
+// Memory-efficient data structure
+type MemoryEfficientCache struct {
+    data   map[string][]byte
+    maxMem int64
+    curMem int64
+    mu     sync.RWMutex
+}
+
+func NewMemoryEfficientCache(maxMem int64) *MemoryEfficientCache {
+    return &MemoryEfficientCache{
+        data:   make(map[string][]byte),
+        maxMem: maxMem,
+    }
+}
+
+func (c *MemoryEfficientCache) Set(key string, value []byte) bool {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    
+    size := int64(len(value))
+    if c.curMem+size > c.maxMem {
+        // Evict oldest entries (simplified LRU)
+        c.evict(size)
+    }
+    
+    if old, exists := c.data[key]; exists {
+        c.curMem -= int64(len(old))
+    }
+    
+    c.data[key] = value
+    c.curMem += size
+    return true
+}
+
+func (c *MemoryEfficientCache) evict(needed int64) {
+    // Simple eviction - remove random entries
+    for key, value := range c.data {
+        size := int64(len(value))
+        delete(c.data, key)
+        c.curMem -= size
+        
+        if c.curMem+needed <= c.maxMem {
+            break
+        }
+    }
+}
+
+// Memory monitoring
+func monitorMemory() {
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    
+    fmt.Printf("Alloc = %d KB", bToKb(m.Alloc))
+    fmt.Printf("TotalAlloc = %d KB", bToKb(m.TotalAlloc))
+    fmt.Printf("Sys = %d KB", bToKb(m.Sys))
+    fmt.Printf("NumGC = %d\n", m.NumGC)
+}
+
+func bToKb(b uint64) uint64 {
+    return b / 1024
+}
+
+// Prevent memory leaks in goroutines
+func safeGoroutine(ctx context.Context, work func()) {
+    go func() {
+        defer func() {
+            if r := recover(); r != nil {
+                fmt.Printf("Goroutine panic recovered: %v\n", r)
+            }
+        }()
+        
+        select {
+        case <-ctx.Done():
+            return
+        default:
+            work()
+        }
+    }()
+}
+
+// Usage:
+// go test -memprofile=mem.prof
+// go tool pprof mem.prof
+// (pprof) top10
+// (pprof) list functionName

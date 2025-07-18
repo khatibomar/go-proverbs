@@ -1,0 +1,26 @@
+// Testify for rich assertions
+func Add(a, b int) int { return a + b }
+
+func Divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, errors.New("division by zero")
+    }
+    return a / b, nil
+}
+
+func main() {
+    // Example testify usage (in real tests):
+    
+    result := Add(2, 3)
+    fmt.Printf("Add result: %d\n", result)
+    // assert.Equal(t, 5, result)
+    
+    _, err := Divide(10, 0)
+    fmt.Printf("Division error: %v\n", err)
+    // assert.Error(t, err)
+    // assert.Contains(t, err.Error(), "division")
+    
+    users := []string{"Alice", "Bob"}
+    // assert.Contains(t, users, "Alice")
+    // assert.Len(t, users, 2)
+}

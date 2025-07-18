@@ -1,0 +1,18 @@
+var (
+    once sync.Once
+    db   *sql.DB
+)
+
+func GetDB() *sql.DB {
+    once.Do(func() {
+        fmt.Println("Initializing database connection")
+        db, _ = sql.Open("postgres", "connection-string")
+    })
+    return db
+}
+
+// Usage - safe from multiple goroutines
+func worker() {
+    database := GetDB() // Only connects once
+    _ = database
+}

@@ -1,0 +1,17 @@
+type Buffer struct {
+    data []byte
+}
+
+func (b *Buffer) Write(p []byte) (int, error) {
+    b.data = append(b.data, p...) // Works with nil slice
+    return len(p), nil
+}
+
+func (b *Buffer) String() string {
+    return string(b.data)
+}
+
+// Usage - zero value is immediately useful
+var buf Buffer // Zero value, ready to use
+buf.Write([]byte("hello"))
+fmt.Println(buf.String()) // "hello"

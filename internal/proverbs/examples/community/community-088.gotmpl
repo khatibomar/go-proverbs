@@ -1,0 +1,78 @@
+// Contract testing for microservices
+type User struct {
+    ID   string `json:"id"`
+    Name string `json:"name"`
+    Email string `json:"email"`
+}
+
+type UserClient struct {
+    baseURL string
+    client  *http.Client
+}
+
+func NewUserClient(baseURL string) *UserClient {
+    return &UserClient{
+        baseURL: baseURL,
+        client:  &http.Client{Timeout: 5 * time.Second},
+    }
+}
+
+func (c *UserClient) GetUser(id string) (*User, error) {
+    resp, err := c.client.Get(c.baseURL + "/users/" + id)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("user not found: %d", resp.StatusCode)
+    }
+    
+    var user User
+    if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+        return nil, err
+    }
+    
+    return &user, nil
+}
+
+// Consumer contract test
+func TestUserServiceContract(t *testing.T) {
+    // Mock server that implements the expected contract
+    mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path == "/users/123" {
+            user := User{ID: "123", Name: "John Doe", Email: "john@example.com"}
+            w.Header().Set("Content-Type", "application/json")
+            json.NewEncoder(w).Encode(user)
+            return
+        }
+        w.WriteHeader(http.StatusNotFound)
+    }))
+    defer mockServer.Close()
+    
+    client := NewUserClient(mockServer.URL)
+    
+    // Test the contract
+    user, err := client.GetUser("123")
+    assert.NoError(t, err)
+    assert.Equal(t, "123", user.ID)
+    assert.Equal(t, "John Doe", user.Name)
+    assert.Equal(t, "john@example.com", user.Email)
+    
+    // Test error case
+    _, err = client.GetUser("999")
+    assert.Error(t, err)
+}
+
+// Provider contract test (would run against actual service)
+func TestUserServiceProviderContract(t *testing.T) {
+    // This test runs against the real service to ensure
+    // it satisfies the contract expected by consumers
+    client := NewUserClient("http://localhost:8080")
+    
+    user, err := client.GetUser("test-user-id")
+    assert.NoError(t, err)
+    assert.NotEmpty(t, user.ID)
+    assert.NotEmpty(t, user.Name)
+    assert.Contains(t, user.Email, "@")
+}

@@ -1,0 +1,33 @@
+// With the unsafe package there are no guarantees
+// unsafe breaks Go's safety guarantees - use with extreme caution
+
+// DANGEROUS: This can break with any Go version update
+func stringToBytesUnsafe(s string) []byte {
+    return *(*[]byte)(unsafe.Pointer(&s))
+}
+
+// SAFE: Standard conversion
+func stringToBytesSafe(s string) []byte {
+    return []byte(s)
+}
+
+func main() {
+    s := "Hello, World!"
+    
+    // Unsafe approach - dangerous!
+    unsafeBytes := stringToBytesUnsafe(s)
+    fmt.Printf("Unsafe conversion: %s\n", unsafeBytes)
+    // Modifying unsafeBytes could corrupt memory!
+    
+    // Safe approach
+    safeBytes := stringToBytesSafe(s)
+    safeBytes[0] = 'h' // This is safe to modify
+    fmt.Printf("Safe conversion: %s\n", safeBytes)
+    fmt.Printf("Original string: %s (unchanged)\n", s)
+    
+    fmt.Println("\nWhy avoid unsafe:")
+    fmt.Println("- Breaks Go's memory safety")
+    fmt.Println("- Can cause crashes and corruption")
+    fmt.Println("- Code may break with Go updates")
+    fmt.Println("- Use only as last resort!")
+}

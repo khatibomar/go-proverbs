@@ -1,0 +1,48 @@
+// Decorator pattern for middleware
+type Handler func(http.ResponseWriter, *http.Request)
+
+func LoggingMiddleware(next Handler) Handler {
+    return func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        fmt.Printf("[%s] %s %s\n", start.Format("15:04:05"), r.Method, r.URL.Path)
+        
+        next(w, r)
+        
+        duration := time.Since(start)
+        fmt.Printf("Request completed in %v\n", duration)
+    }
+}
+
+func AuthMiddleware(next Handler) Handler {
+    return func(w http.ResponseWriter, r *http.Request) {
+        token := r.Header.Get("Authorization")
+        if token == "" {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+        
+        fmt.Println("User authenticated")
+        next(w, r)
+    }
+}
+
+func CORSMiddleware(next Handler) Handler {
+    return func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
+        
+        next(w, r)
+    }
+}
+
+func HelloHandler(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Hello, World!")
+}
+
+// Chain middlewares
+func main() {
+    handler := CORSMiddleware(AuthMiddleware(LoggingMiddleware(HelloHandler)))
+    http.HandleFunc("/", handler)
+    fmt.Println("Server starting on :8080")
+    http.ListenAndServe(":8080", nil)
+}

@@ -1,0 +1,19 @@
+// sync.WaitGroup for goroutine coordination
+func main() {
+    var wg sync.WaitGroup
+    
+    tasks := []string{"task1", "task2", "task3"}
+    
+    for _, task := range tasks {
+        wg.Add(1)
+        go func(t string) {
+            defer wg.Done()
+            fmt.Printf("Processing %s\n", t)
+            time.Sleep(100 * time.Millisecond) // Simulate work
+            fmt.Printf("Completed %s\n", t)
+        }(task)
+    }
+    
+    wg.Wait() // Wait for all goroutines to complete
+    fmt.Println("All tasks completed")
+}

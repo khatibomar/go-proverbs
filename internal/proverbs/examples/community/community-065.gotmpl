@@ -1,0 +1,47 @@
+// Memory-efficient string operations
+func inefficientConcat(parts []string) string {
+    var result string
+    for _, part := range parts {
+        result += part // Creates new string each time
+    }
+    return result
+}
+
+func efficientJoin(parts []string, separator string) string {
+    // Single allocation
+    return strings.Join(parts, separator)
+}
+
+func efficientBuilder(parts []string, estimatedSize int) string {
+    var b strings.Builder
+    b.Grow(estimatedSize) // Pre-allocate capacity
+    
+    for i, part := range parts {
+        if i > 0 {
+            b.WriteString(", ")
+        }
+        b.WriteString(part)
+    }
+    
+    return b.String()
+}
+
+func main() {
+    parts := []string{"apple", "banana", "cherry", "date", "elderberry"}
+    
+    // Inefficient: multiple allocations
+    start := time.Now()
+    result1 := inefficientConcat(parts)
+    fmt.Printf("Inefficient concat: %v, result: %s\n", time.Since(start), result1)
+    
+    // Efficient: single allocation
+    start = time.Now()
+    result2 := efficientJoin(parts, ", ")
+    fmt.Printf("Efficient join: %v, result: %s\n", time.Since(start), result2)
+    
+    // Efficient: pre-sized builder
+    estimatedSize := len(parts)*10 + (len(parts)-1)*2 // rough estimate
+    start = time.Now()
+    result3 := efficientBuilder(parts, estimatedSize)
+    fmt.Printf("Efficient builder: %v, result: %s\n", time.Since(start), result3)
+}

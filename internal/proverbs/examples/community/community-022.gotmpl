@@ -1,0 +1,18 @@
+// Simple metrics tracking
+var requestCount int64
+
+func metricsMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        
+        // Increment counter
+        atomic.AddInt64(&requestCount, 1)
+        
+        // Process request
+        next.ServeHTTP(w, r)
+        
+        // Log metrics
+        duration := time.Since(start)
+        fmt.Printf("Request: %s %s - Duration: %v\n", r.Method, r.URL.Path, duration)
+    })
+}

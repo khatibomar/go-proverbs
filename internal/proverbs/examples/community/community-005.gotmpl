@@ -1,0 +1,16 @@
+type Logger struct{}
+func (l *Logger) Log(msg string) { fmt.Println("LOG:", msg) }
+
+type Validator struct{}
+func (v *Validator) Validate() error { return nil }
+
+type User struct {
+    *Logger    // embedded
+    *Validator // embedded
+    Name string
+}
+
+// Usage
+user := &User{&Logger{}, &Validator{}, "John"}
+user.Log("created")     // uses embedded Logger
+user.Validate()         // uses embedded Validator

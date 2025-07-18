@@ -1,0 +1,54 @@
+// Fan-out/Fan-in pattern
+func main() {
+    input := make(chan int)
+    
+    // Fan-out: distribute to multiple workers
+    worker1 := make(chan int)
+    worker2 := make(chan int)
+    
+    go func() {
+        defer close(worker1)
+        defer close(worker2)
+        i := 0
+        for data := range input {
+            if i%2 == 0 {
+                worker1 <- data
+            } else {
+                worker2 <- data
+            }
+            i++
+        }
+    }()
+    
+    // Fan-in: collect results
+    results := make(chan int)
+    var wg sync.WaitGroup
+    
+    for _, worker := range []<-chan int{worker1, worker2} {
+        wg.Add(1)
+        go func(w <-chan int) {
+            defer wg.Done()
+            for data := range w {
+                results <- data * data
+            }
+        }(worker)
+    }
+    
+    go func() {
+        wg.Wait()
+        close(results)
+    }()
+    
+    // Send data
+    go func() {
+        defer close(input)
+        for i := 1; i <= 6; i++ {
+            input <- i
+        }
+    }()
+    
+    // Collect results
+    for result := range results {
+        fmt.Printf("Result: %d\n", result)
+    }
+}

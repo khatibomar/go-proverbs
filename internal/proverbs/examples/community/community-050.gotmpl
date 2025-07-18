@@ -1,0 +1,46 @@
+// Repository pattern for data access
+type User struct {
+    ID    string
+    Name  string
+    Email string
+}
+
+type UserRepository interface {
+    Create(user *User) error
+    GetByID(id string) (*User, error)
+    Update(user *User) error
+    Delete(id string) error
+}
+
+type InMemoryUserRepo struct {
+    users map[string]*User
+}
+
+func NewInMemoryUserRepo() *InMemoryUserRepo {
+    return &InMemoryUserRepo{
+        users: make(map[string]*User),
+    }
+}
+
+func (r *InMemoryUserRepo) Create(user *User) error {
+    r.users[user.ID] = user
+    return nil
+}
+
+func (r *InMemoryUserRepo) GetByID(id string) (*User, error) {
+    user, exists := r.users[id]
+    if !exists {
+        return nil, fmt.Errorf("user not found")
+    }
+    return user, nil
+}
+
+func (r *InMemoryUserRepo) Update(user *User) error {
+    r.users[user.ID] = user
+    return nil
+}
+
+func (r *InMemoryUserRepo) Delete(id string) error {
+    delete(r.users, id)
+    return nil
+}

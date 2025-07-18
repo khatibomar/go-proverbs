@@ -1,0 +1,29 @@
+// CONCURRENCY: Dealing with multiple things at once
+func handleRequests(requests <-chan Request) {
+	for req := range requests {
+		go processRequest(req) // concurrent handling
+	}
+}
+
+// PARALLELISM: Doing multiple things at once
+func parallelSum(numbers []int) int {
+	numCPU := runtime.NumCPU()
+	chunkSize := len(numbers) / numCPU
+	results := make(chan int, numCPU)
+	
+	for i := 0; i < numCPU; i++ {
+		go func(chunk []int) {
+			sum := 0
+			for _, n := range chunk {
+				sum += n
+			}
+			results <- sum
+		}(numbers[i*chunkSize:(i+1)*chunkSize])
+	}
+	
+	total := 0
+	for i := 0; i < numCPU; i++ {
+		total += <-results
+	}
+	return total
+}

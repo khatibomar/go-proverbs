@@ -1,0 +1,37 @@
+// Memory pooling for high-frequency allocations
+var bufferPool = sync.Pool{
+    New: func() interface{} {
+        return make([]byte, 0, 1024) // 1KB initial capacity
+    },
+}
+
+func processData(data string) string {
+    // Get buffer from pool
+    buf := bufferPool.Get().([]byte)
+    buf = buf[:0] // Reset length, keep capacity
+    
+    defer bufferPool.Put(buf) // Return to pool
+    
+    // Use buffer for processing
+    buf = append(buf, "Processed: "...)
+    buf = append(buf, data...)
+    
+    return string(buf)
+}
+
+func main() {
+    var wg sync.WaitGroup
+    
+    // Simulate high-frequency processing
+    for i := 0; i < 100; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            data := fmt.Sprintf("data-%d", id)
+            result := processData(data)
+            fmt.Println(result)
+        }(i)
+    }
+    
+    wg.Wait()
+}

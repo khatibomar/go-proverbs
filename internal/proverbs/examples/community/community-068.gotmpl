@@ -1,0 +1,67 @@
+// Use interfaces for testing boundaries
+type HTTPClient interface {
+    Do(req *http.Request) (*http.Response, error)
+}
+
+type UserService struct {
+    client HTTPClient
+    baseURL string
+}
+
+func NewUserService(client HTTPClient, baseURL string) *UserService {
+    return &UserService{
+        client: client,
+        baseURL: baseURL,
+    }
+}
+
+func (s *UserService) GetUser(id string) (*User, error) {
+    req, err := http.NewRequest("GET", s.baseURL+"/users/"+id, nil)
+    if err != nil {
+        return nil, err
+    }
+    
+    resp, err := s.client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("API error: %d", resp.StatusCode)
+    }
+    
+    // In real code, parse JSON response
+    return &User{ID: id, Name: "Test User"}, nil
+}
+
+type User struct {
+    ID   string
+    Name string
+}
+
+// Mock for testing
+type MockHTTPClient struct {
+    response *http.Response
+    err      error
+}
+
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+    return m.response, m.err
+}
+
+func main() {
+    // Production: use real HTTP client
+    realClient := &http.Client{Timeout: 10 * time.Second}
+    service := NewUserService(realClient, "https://api.example.com")
+    
+    // Testing: use mock client
+    mockClient := &MockHTTPClient{
+        response: &http.Response{StatusCode: 200},
+        err:      nil,
+    }
+    testService := NewUserService(mockClient, "http://test.example.com")
+    
+    fmt.Printf("Production service: %+v\n", service)
+    fmt.Printf("Test service: %+v\n", testService)
+}

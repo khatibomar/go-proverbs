@@ -1,0 +1,50 @@
+// Bounded queues prevent memory exhaustion
+type Task struct {
+    ID   int
+    Data string
+}
+
+var ErrQueueFull = fmt.Errorf("queue is full")
+
+func enqueueTask(queue chan Task, task Task, timeout time.Duration) error {
+    select {
+    case queue <- task:
+        fmt.Printf("Task %d queued successfully\n", task.ID)
+        return nil
+    case <-time.After(timeout):
+        return ErrQueueFull
+    }
+}
+
+func worker(id int, queue <-chan Task) {
+    for task := range queue {
+        fmt.Printf("Worker %d processing task %d: %s\n", id, task.ID, task.Data)
+        time.Sleep(100 * time.Millisecond) // Simulate work
+    }
+}
+
+func main() {
+    const maxQueueSize = 3
+    const timeout = 50 * time.Millisecond
+    
+    queue := make(chan Task, maxQueueSize)
+    
+    // Start workers
+    for i := 1; i <= 2; i++ {
+        go worker(i, queue)
+    }
+    
+    // Try to enqueue tasks
+    for i := 1; i <= 6; i++ {
+        task := Task{ID: i, Data: fmt.Sprintf("data-%d", i)}
+        
+        if err := enqueueTask(queue, task, timeout); err != nil {
+            fmt.Printf("Failed to queue task %d: %v\n", task.ID, err)
+        }
+        
+        time.Sleep(20 * time.Millisecond)
+    }
+    
+    time.Sleep(1 * time.Second) // Let workers finish
+    close(queue)
+}

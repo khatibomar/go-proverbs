@@ -1,0 +1,67 @@
+// Batch processing for efficiency
+type Batcher struct {
+    items   []Item
+    maxSize int
+    maxWait time.Duration
+    timer   *time.Timer
+    mu      sync.Mutex
+    process func([]Item)
+}
+
+type Item struct {
+    ID   string
+    Data string
+}
+
+func NewBatcher(maxSize int, maxWait time.Duration, processFn func([]Item)) *Batcher {
+    return &Batcher{
+        maxSize: maxSize,
+        maxWait: maxWait,
+        process: processFn,
+    }
+}
+
+func (b *Batcher) Add(item Item) {
+    b.mu.Lock()
+    defer b.mu.Unlock()
+    
+    b.items = append(b.items, item)
+    
+    // Start timer on first item
+    if len(b.items) == 1 {
+        b.timer = time.AfterFunc(b.maxWait, b.flush)
+    }
+    
+    // Flush if batch is full
+    if len(b.items) >= b.maxSize {
+        b.flush()
+    }
+}
+
+func (b *Batcher) flush() {
+    if b.timer != nil {
+        b.timer.Stop()
+        b.timer = nil
+    }
+    
+    if len(b.items) > 0 {
+        b.process(b.items)
+        b.items = nil
+    }
+}
+
+// Usage example
+func main() {
+    batcher := NewBatcher(5, 2*time.Second, func(items []Item) {
+        fmt.Printf("Processing batch of %d items\n", len(items))
+        for _, item := range items {
+            fmt.Printf("  - %s: %s\n", item.ID, item.Data)
+        }
+    })
+    
+    // Add items
+    for i := 0; i < 12; i++ {
+        batcher.Add(Item{ID: fmt.Sprintf("item-%d", i), Data: "data"})
+        time.Sleep(300 * time.Millisecond)
+    }
+}

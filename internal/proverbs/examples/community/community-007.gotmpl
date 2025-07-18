@@ -1,0 +1,23 @@
+type ValidationError struct {
+    Field string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("validation failed: %s", e.Field)
+}
+
+type NotFoundError struct {
+    ID string
+}
+
+func (e *NotFoundError) Error() string {
+    return fmt.Sprintf("not found: %s", e.ID)
+}
+
+// Usage
+func handleError(err error) {
+    var ve *ValidationError
+    if errors.As(err, &ve) {
+        fmt.Println("Validation error:", ve.Field)
+    }
+}

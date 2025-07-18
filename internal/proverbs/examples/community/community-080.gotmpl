@@ -1,0 +1,54 @@
+// Implement event sourcing for audit trails
+type Event struct {
+    ID        string
+    Type      string
+    Data      map[string]interface{}
+    Timestamp time.Time
+}
+
+type EventStore interface {
+    SaveEvent(event Event) error
+    GetEvents(aggregateID string) ([]Event, error)
+}
+
+// Account aggregate with event sourcing
+type Account struct {
+    ID      string
+    Balance float64
+    events  []Event
+}
+
+func (a *Account) Deposit(amount float64) {
+    // Create and apply event
+    event := Event{
+        ID:        uuid.New().String(),
+        Type:      "DepositPerformed",
+        Data:      map[string]interface{}{"amount": amount},
+        Timestamp: time.Now(),
+    }
+    
+    a.Apply(event)
+    a.events = append(a.events, event)
+}
+
+func (a *Account) Apply(event Event) {
+    switch event.Type {
+    case "DepositPerformed":
+        a.Balance += event.Data["amount"].(float64)
+    case "WithdrawalPerformed":
+        a.Balance -= event.Data["amount"].(float64)
+    }
+}
+
+// Audit trail example
+func GetAuditTrail(store EventStore, accountID string) {
+    events, _ := store.GetEvents(accountID)
+    fmt.Println("Audit trail for account", accountID)
+    
+    for _, event := range events {
+        fmt.Printf("%s: %s - %v\n", 
+            event.Timestamp.Format(time.RFC3339),
+            event.Type, 
+            event.Data)
+    }
+}

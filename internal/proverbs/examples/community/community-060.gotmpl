@@ -1,0 +1,37 @@
+// Use go:generate for code generation
+
+//go:generate stringer -type=Status
+//go:generate mockgen -source=interface.go -destination=mock.go
+
+type Status int
+
+const (
+    StatusPending Status = iota
+    StatusProcessing
+    StatusCompleted
+    StatusFailed
+)
+
+type UserService interface {
+    GetUser(id string) (*User, error)
+    CreateUser(user *User) error
+    UpdateUser(user *User) error
+    DeleteUser(id string) error
+}
+
+type User struct {
+    ID    string
+    Name  string
+    Email string
+}
+
+func main() {
+    status := StatusProcessing
+    fmt.Printf("Current status: %s\n", status.String())
+    
+    fmt.Println("Run 'go generate ./...' to generate:")
+    fmt.Println("- String methods for Status enum")
+    fmt.Println("- Mock implementations for interfaces")
+    fmt.Println("- Protocol buffer code")
+    fmt.Println("- Any other code generation tools")
+}

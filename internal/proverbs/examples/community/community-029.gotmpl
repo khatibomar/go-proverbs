@@ -1,0 +1,31 @@
+// Rate limiting with time.Ticker
+func main() {
+    ticker := time.NewTicker(500 * time.Millisecond) // 2 ops/sec
+    defer ticker.Stop()
+    
+    workChan := make(chan string, 10)
+    
+    // Producer
+    go func() {
+        for i := 1; i <= 5; i++ {
+            workChan <- fmt.Sprintf("work-%d", i)
+        }
+        close(workChan)
+    }()
+    
+    // Rate-limited consumer
+    for {
+        select {
+        case <-ticker.C:
+            select {
+            case work, ok := <-workChan:
+                if !ok {
+                    return // No more work
+                }
+                fmt.Printf("Processing: %s\n", work)
+            default:
+                fmt.Println("No work available")
+            }
+        }
+    }
+}

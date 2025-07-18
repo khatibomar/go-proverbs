@@ -1,0 +1,195 @@
+// Alloc profiling to minimize garbage collection
+
+// High-allocation string operations (problematic)
+func inefficientStringOps(data []string) string {
+    result := ""
+    for _, s := range data {
+        result += s + "," // Creates new string each iteration
+    }
+    return result
+}
+
+// Low-allocation string operations (optimized)
+func efficientStringOps(data []string) string {
+    if len(data) == 0 {
+        return ""
+    }
+    
+    // Pre-calculate total length
+    totalLen := len(data) - 1 // commas
+    for _, s := range data {
+        totalLen += len(s)
+    }
+    
+    var builder strings.Builder
+    builder.Grow(totalLen) // Pre-allocate
+    
+    for i, s := range data {
+        if i > 0 {
+            builder.WriteByte(',')
+        }
+        builder.WriteString(s)
+    }
+    
+    return builder.String()
+}
+
+// Buffer reuse pattern
+type BufferPool struct {
+    pool sync.Pool
+}
+
+func NewBufferPool() *BufferPool {
+    return &BufferPool{
+        pool: sync.Pool{
+            New: func() interface{} {
+                return bytes.NewBuffer(make([]byte, 0, 1024))
+            },
+        },
+    }
+}
+
+func (bp *BufferPool) Get() *bytes.Buffer {
+    return bp.pool.Get().(*bytes.Buffer)
+}
+
+func (bp *BufferPool) Put(buf *bytes.Buffer) {
+    buf.Reset() // Clear content but keep capacity
+    bp.pool.Put(buf)
+}
+
+// Zero-allocation JSON parsing
+func parseJSONEfficiently(data []byte) (map[string]string, error) {
+    result := make(map[string]string)
+    
+    // Use json.Decoder for streaming
+    decoder := json.NewDecoder(bytes.NewReader(data))
+    
+    // Read opening brace
+    token, err := decoder.Token()
+    if err != nil {
+        return nil, err
+    }
+    
+    if delim, ok := token.(json.Delim); !ok || delim != '{' {
+        return nil, fmt.Errorf("expected opening brace")
+    }
+    
+    // Read key-value pairs
+    for decoder.More() {
+        // Read key
+        keyToken, err := decoder.Token()
+        if err != nil {
+            return nil, err
+        }
+        key := keyToken.(string)
+        
+        // Read value
+        valueToken, err := decoder.Token()
+        if err != nil {
+            return nil, err
+        }
+        value := valueToken.(string)
+        
+        result[key] = value
+    }
+    
+    return result, nil
+}
+
+// Allocation-aware data processing
+func processDataEfficiently(input [][]byte) [][]byte {
+    // Pre-allocate result slice
+    result := make([][]byte, 0, len(input))
+    
+    // Reuse buffer for processing
+    buffer := make([]byte, 0, 1024)
+    
+    for _, data := range input {
+        // Reset buffer but keep capacity
+        buffer = buffer[:0]
+        
+        // Process data into buffer
+        for _, b := range data {
+            if b != 0 { // Filter out zero bytes
+                buffer = append(buffer, b)
+            }
+        }
+        
+        // Copy buffer to result (necessary to avoid sharing)
+        if len(buffer) > 0 {
+            processed := make([]byte, len(buffer))
+            copy(processed, buffer)
+            result = append(result, processed)
+        }
+    }
+    
+    return result
+}
+
+// Benchmark allocation patterns
+func BenchmarkAllocPatterns(b *testing.B) {
+    data := []string{"hello", "world", "foo", "bar", "baz"}
+    
+    b.Run("Inefficient", func(b *testing.B) {
+        b.ReportAllocs()
+        for i := 0; i < b.N; i++ {
+            _ = inefficientStringOps(data)
+        }
+    })
+    
+    b.Run("Efficient", func(b *testing.B) {
+        b.ReportAllocs()
+        for i := 0; i < b.N; i++ {
+            _ = efficientStringOps(data)
+        }
+    })
+}
+
+// Memory allocation tracker
+type AllocTracker struct {
+    startAlloc uint64
+    startMallocs uint64
+}
+
+func NewAllocTracker() *AllocTracker {
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    
+    return &AllocTracker{
+        startAlloc: m.TotalAlloc,
+        startMallocs: m.Mallocs,
+    }
+}
+
+func (at *AllocTracker) Report() {
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    
+    allocDiff := m.TotalAlloc - at.startAlloc
+    mallocDiff := m.Mallocs - at.startMallocs
+    
+    fmt.Printf("Allocated: %d bytes in %d allocations\n", allocDiff, mallocDiff)
+    fmt.Printf("Average allocation size: %.2f bytes\n", float64(allocDiff)/float64(mallocDiff))
+}
+
+// Example usage
+func demonstrateAllocTracking() {
+    tracker := NewAllocTracker()
+    
+    // Some allocating operations
+    data := make([]string, 1000)
+    for i := range data {
+        data[i] = fmt.Sprintf("item-%d", i)
+    }
+    
+    result := efficientStringOps(data)
+    _ = result
+    
+    tracker.Report()
+}
+
+// Usage:
+// go test -bench=. -benchmem
+// go test -memprofile=alloc.prof
+// go tool pprof -alloc_space alloc.prof

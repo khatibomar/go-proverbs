@@ -1,0 +1,66 @@
+// Handle errors at the right level
+// Low-level functions add context, high-level functions decide recovery
+
+type Config struct {
+    DatabaseURL string
+    Port        int
+}
+
+// LOW-LEVEL: Add context and propagate
+func readFile(filename string) ([]byte, error) {
+    data, err := os.ReadFile(filename)
+    if err != nil {
+        return nil, fmt.Errorf("reading file %s: %w", filename, err)
+    }
+    return data, nil
+}
+
+func parseConfig(data []byte) (*Config, error) {
+    // Simulate parsing
+    if len(data) == 0 {
+        return nil, fmt.Errorf("empty config data")
+    }
+    return &Config{DatabaseURL: "db://localhost", Port: 8080}, nil
+}
+
+// MID-LEVEL: Coordinate operations, add context
+func loadConfig(filename string) (*Config, error) {
+    data, err := readFile(filename)
+    if err != nil {
+        return nil, fmt.Errorf("loading config: %w", err)
+    }
+    
+    config, err := parseConfig(data)
+    if err != nil {
+        return nil, fmt.Errorf("loading config: %w", err)
+    }
+    
+    return config, nil
+}
+
+// HIGH-LEVEL: Decide recovery strategies
+func initApp() *Config {
+    config, err := loadConfig("app.json")
+    if err != nil {
+        fmt.Printf("Config failed: %v\n", err)
+        fmt.Println("Using defaults")
+        return &Config{DatabaseURL: "sqlite://app.db", Port: 8080}
+    }
+    return config
+}
+
+func main() {
+    config := initApp()
+    
+    fmt.Printf("App initialized:\n")
+    fmt.Printf("  Database: %s\n", config.DatabaseURL)
+    fmt.Printf("  Port: %d\n", config.Port)
+    
+    // Demonstrate error context
+    _, err := loadConfig("missing.json")
+    if err != nil {
+        fmt.Printf("\nError with context: %v\n", err)
+    }
+    
+    fmt.Println("\nLevels: Low adds context, High decides recovery")
+}

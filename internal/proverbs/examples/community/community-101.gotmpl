@@ -1,0 +1,135 @@
+// Trace profiling for concurrency analysis
+
+// Traced function with context
+func tracedOperation(ctx context.Context, name string) error {
+    // Start trace region
+    defer trace.StartRegion(ctx, name).End()
+    
+    // Simulate work
+    time.Sleep(100 * time.Millisecond)
+    
+    // Log trace event
+    trace.Log(ctx, "operation", "completed successfully")
+    
+    return nil
+}
+
+// Concurrent operations with tracing
+func concurrentWork(ctx context.Context) {
+    var wg sync.WaitGroup
+    
+    for i := 0; i < 5; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            
+            // Create task-specific context
+            taskCtx := trace.WithRegion(ctx, fmt.Sprintf("worker-%d", id))
+            
+            // Simulate different types of work
+            switch id % 3 {
+            case 0:
+                cpuIntensiveTask(taskCtx)
+            case 1:
+                ioTask(taskCtx)
+            case 2:
+                networkTask(taskCtx)
+            }
+        }(i)
+    }
+    
+    wg.Wait()
+}
+
+func cpuIntensiveTask(ctx context.Context) {
+    defer trace.StartRegion(ctx, "cpu-intensive").End()
+    
+    // Simulate CPU work
+    sum := 0
+    for i := 0; i < 1000000; i++ {
+        sum += i
+    }
+    
+    trace.Log(ctx, "cpu-task", fmt.Sprintf("sum=%d", sum))
+}
+
+func ioTask(ctx context.Context) {
+    defer trace.StartRegion(ctx, "io-task").End()
+    
+    // Simulate I/O
+    time.Sleep(50 * time.Millisecond)
+    trace.Log(ctx, "io-task", "file read completed")
+}
+
+func networkTask(ctx context.Context) {
+    defer trace.StartRegion(ctx, "network-task").End()
+    
+    // Simulate network call
+    time.Sleep(200 * time.Millisecond)
+    trace.Log(ctx, "network-task", "API call completed")
+}
+
+// Pipeline with tracing
+func tracedPipeline(ctx context.Context, data []int) []int {
+    defer trace.StartRegion(ctx, "pipeline").End()
+    
+    // Stage 1: Filter
+    filtered := make(chan int, len(data))
+    go func() {
+        defer close(filtered)
+        defer trace.StartRegion(ctx, "filter-stage").End()
+        
+        for _, v := range data {
+            if v%2 == 0 {
+                filtered <- v
+            }
+        }
+    }()
+    
+    // Stage 2: Transform
+    transformed := make(chan int, len(data))
+    go func() {
+        defer close(transformed)
+        defer trace.StartRegion(ctx, "transform-stage").End()
+        
+        for v := range filtered {
+            transformed <- v * 2
+        }
+    }()
+    
+    // Collect results
+    var results []int
+    for v := range transformed {
+        results = append(results, v)
+    }
+    
+    trace.Log(ctx, "pipeline", fmt.Sprintf("processed %d items", len(results)))
+    return results
+}
+
+// Enable tracing in main
+func enableTracing() {
+    f, err := os.Create("trace.out")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer f.Close()
+    
+    if err := trace.Start(f); err != nil {
+        log.Fatal(err)
+    }
+    defer trace.Stop()
+    
+    // Your traced code here
+    ctx := context.Background()
+    concurrentWork(ctx)
+    
+    data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    result := tracedPipeline(ctx, data)
+    fmt.Printf("Pipeline result: %v\n", result)
+}
+
+// Usage:
+// go run main.go
+// go tool trace trace.out
+// View in browser for goroutine analysis

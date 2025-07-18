@@ -1,0 +1,59 @@
+// Implement backpressure with buffered channels
+type Task struct {
+    ID   int
+    Data string
+}
+
+var ErrBackpressure = fmt.Errorf("system overloaded")
+
+type Processor struct {
+    input   chan Task
+    timeout time.Duration
+}
+
+func NewProcessor(bufferSize int) *Processor {
+    return &Processor{
+        input:   make(chan Task, bufferSize),
+        timeout: 100 * time.Millisecond,
+    }
+}
+
+func (p *Processor) Submit(task Task) error {
+    select {
+    case p.input <- task:
+        return nil
+    case <-time.After(p.timeout):
+        return ErrBackpressure
+    }
+}
+
+func (p *Processor) Start() {
+    go func() {
+        for task := range p.input {
+            // Simulate processing
+            time.Sleep(200 * time.Millisecond)
+            fmt.Printf("Processed task %d: %s\n", task.ID, task.Data)
+        }
+    }()
+}
+
+func main() {
+    processor := NewProcessor(3) // Buffer size of 3
+    processor.Start()
+    
+    // Submit tasks rapidly
+    for i := 1; i <= 8; i++ {
+        task := Task{ID: i, Data: fmt.Sprintf("data-%d", i)}
+        
+        if err := processor.Submit(task); err != nil {
+            fmt.Printf("Task %d rejected: %v\n", task.ID, err)
+        } else {
+            fmt.Printf("Task %d submitted\n", task.ID)
+        }
+        
+        time.Sleep(50 * time.Millisecond)
+    }
+    
+    time.Sleep(2 * time.Second) // Wait for processing
+    fmt.Println("Processing complete")
+}

@@ -1,0 +1,18 @@
+// Worker pool limits concurrent goroutines
+jobs := make(chan string, 100)
+
+// Start fixed number of workers
+for i := 0; i < 5; i++ {
+    go func(workerID int) {
+        for job := range jobs {
+            fmt.Printf("Worker %d processing %s\n", workerID, job)
+            time.Sleep(100 * time.Millisecond) // Simulate work
+        }
+    }(i)
+}
+
+// Submit jobs
+for i := 0; i < 20; i++ {
+    jobs <- fmt.Sprintf("task-%d", i)
+}
+close(jobs)

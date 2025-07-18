@@ -1,0 +1,11 @@
+// Bad: growing slice causes reallocations
+var result []string
+for _, item := range data {
+    result = append(result, item) // May reallocate
+}
+
+// Good: preallocate when size is known
+result := make([]string, 0, len(data)) // Preallocate capacity
+for _, item := range data {
+    result = append(result, item) // No reallocations
+}

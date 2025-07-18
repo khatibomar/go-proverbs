@@ -1,0 +1,30 @@
+// Optimize hot paths with profiling
+func main() {
+    // Enable pprof endpoint
+    go func() {
+        log.Println("Starting pprof server on :6060")
+        log.Println(http.ListenAndServe(":6060", nil))
+    }()
+    
+    // Simulate some work to profile
+    for i := 0; i < 1000000; i++ {
+        processData(i)
+    }
+    
+    fmt.Println("Work completed. Profile available at:")
+    fmt.Println("CPU: go tool pprof http://localhost:6060/debug/pprof/profile")
+    fmt.Println("Heap: go tool pprof http://localhost:6060/debug/pprof/heap")
+    fmt.Println("Goroutines: go tool pprof http://localhost:6060/debug/pprof/goroutine")
+    
+    // Keep server running
+    select {}
+}
+
+func processData(n int) string {
+    // Simulate some CPU-intensive work
+    var result strings.Builder
+    for i := 0; i < n%100; i++ {
+        result.WriteString(fmt.Sprintf("item-%d ", i))
+    }
+    return result.String()
+}

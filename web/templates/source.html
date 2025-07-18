@@ -1,0 +1,42 @@
+{{define "source-content"}}
+<h1>{{.Source | title}} Proverbs</h1>
+<p>{{if eq .Source "official"}}The original Go proverbs by Rob Pike and the Go team.{{else}}Community-contributed proverbs with modern Go practices.{{end}}</p>
+
+<div style="margin: 20px 0; padding: 15px; background: #f0f8ff; border-radius: 5px; border-left: 4px solid #007acc;">
+    <strong>{{len .Proverbs}} proverbs</strong> from this source
+</div>
+
+<div style="margin: 30px 0;">
+    {{range .Proverbs}}
+    <article style="background: #fff; padding: 25px; margin: 20px 0; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h3><a href="/proverbs/{{.ID}}">{{.Title}}</a></h3>
+        <blockquote style="font-style: italic; color: #555; margin: 15px 0; padding-left: 20px; border-left: 3px solid #ccc;">
+            {{.Text}}
+        </blockquote>
+        
+        {{if .Explanation}}
+        <div style="margin: 15px 0; color: #666;">
+            <strong>Explanation:</strong> {{.Explanation}}
+        </div>
+        {{end}}
+        
+        <div style="margin-top: 15px; font-size: 0.9em; color: #999;">
+            {{if .Author}}<span>By {{.Author}}</span> • {{end}}
+            {{if .Category}}<span>Category: <a href="/categories/{{.Category}}">{{.Category}}</a></span> • {{end}}
+            {{if .Tags}}Tags: {{range $i, $tag := .Tags}}{{if $i}}, {{end}}{{$tag}}{{end}}{{end}}
+        </div>
+    </article>
+    {{end}}
+</div>
+
+{{if not .Proverbs}}
+<div style="text-align: center; padding: 40px; color: #666;">
+    <h3>No proverbs found from this source</h3>
+    <p>Check back later for more content.</p>
+</div>
+{{end}}
+
+<div style="margin: 30px 0; text-align: center;">
+    <a href="/" style="color: #007acc; text-decoration: none;">← Back to home</a>
+</div>
+{{end}}

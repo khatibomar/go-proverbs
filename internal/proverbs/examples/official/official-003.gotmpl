@@ -1,0 +1,20 @@
+// Channels orchestrate workflows
+jobs := make(chan Job, 100)
+go func() {
+	for job := range jobs {
+		process(job)
+		results <- job.Result
+	}
+}()
+
+// Mutexes serialize access to shared state
+type SafeCounter struct {
+	mu    sync.Mutex
+	count int
+}
+
+func (c *SafeCounter) Inc() {
+	c.mu.Lock()
+	c.count++
+	c.mu.Unlock()
+}

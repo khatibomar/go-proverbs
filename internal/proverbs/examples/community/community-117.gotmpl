@@ -1,0 +1,45 @@
+// Cgo is not Go
+// Use cgo sparingly - it breaks many Go benefits
+
+// Cgo example (commented out to avoid build complexity):
+/*
+#include <stdio.h>
+void hello() {
+    printf("Hello from C!\n");
+}
+*/
+// import "C"
+
+// func callCFunction() {
+//     C.hello() // Requires cgo and C compiler
+// }
+
+// Pure Go alternative is usually better
+func pureGoHello() {
+    fmt.Println("Hello from pure Go!")
+}
+
+// Example: String length
+// Cgo approach would be complex:
+// - Manual memory management
+// - C compiler dependency
+// - Platform-specific builds
+
+// Pure Go approach is simple:
+func stringLength(s string) int {
+    return len(s) // Simple, safe, fast
+}
+
+func main() {
+    text := "Hello, World!"
+    
+    pureGoHello()
+    fmt.Printf("String length: %d\n", stringLength(text))
+    
+    fmt.Println("\nWhy avoid cgo:")
+    fmt.Println("- Breaks cross-compilation")
+    fmt.Println("- Requires C compiler")
+    fmt.Println("- Manual memory management")
+    fmt.Println("- Loses Go's safety guarantees")
+    fmt.Println("- Use only when absolutely necessary!")
+}

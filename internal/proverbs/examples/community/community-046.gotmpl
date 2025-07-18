@@ -1,0 +1,51 @@
+// Test helpers using t.Helper() and t.Cleanup()
+type TestDB struct {
+    connected bool
+    users     map[string]string
+}
+
+func (db *TestDB) Connect() error {
+    db.connected = true
+    db.users = make(map[string]string)
+    return nil
+}
+
+func (db *TestDB) Disconnect() error {
+    db.connected = false
+    return nil
+}
+
+func (db *TestDB) CreateUser(id, name string) error {
+    db.users[id] = name
+    return nil
+}
+
+// Test helper functions
+func setupTestDB(t *testing.T) *TestDB {
+    t.Helper() // Marks this as a helper function
+    
+    db := &TestDB{}
+    db.Connect()
+    
+    t.Cleanup(func() {
+        db.Disconnect() // Cleanup runs even if test fails
+    })
+    
+    return db
+}
+
+func createTestUser(t *testing.T, db *TestDB, id, name string) {
+    t.Helper()
+    
+    db.CreateUser(id, name)
+    
+    t.Cleanup(func() {
+        fmt.Printf("Cleaning up user: %s\n", id)
+    })
+}
+
+func main() {
+    fmt.Println("Test helpers improve error reporting and ensure cleanup")
+    fmt.Println("t.Helper() - marks function as helper for better stack traces")
+    fmt.Println("t.Cleanup() - ensures cleanup runs even if test fails")
+}

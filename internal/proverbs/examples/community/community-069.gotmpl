@@ -1,0 +1,79 @@
+// Table-driven tests for comprehensive coverage
+func Add(a, b int) int {
+    return a + b
+}
+
+func Divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, fmt.Errorf("division by zero")
+    }
+    return a / b, nil
+}
+
+// Example test structure (would be in _test.go file)
+type AddTest struct {
+    name     string
+    a, b     int
+    expected int
+}
+
+type DivideTest struct {
+    name        string
+    a, b        float64
+    expected    float64
+    expectError bool
+}
+
+func runAddTests() {
+    tests := []AddTest{
+        {"positive numbers", 2, 3, 5},
+        {"negative numbers", -2, -3, -5},
+        {"mixed signs", -2, 3, 1},
+        {"zero values", 0, 0, 0},
+        {"large numbers", 1000000, 2000000, 3000000},
+    }
+    
+    for _, tt := range tests {
+        result := Add(tt.a, tt.b)
+        if result != tt.expected {
+            fmt.Printf("FAIL %s: Add(%d, %d) = %d, want %d\n", 
+                tt.name, tt.a, tt.b, result, tt.expected)
+        } else {
+            fmt.Printf("PASS %s\n", tt.name)
+        }
+    }
+}
+
+func runDivideTests() {
+    tests := []DivideTest{
+        {"normal division", 10, 2, 5, false},
+        {"division by zero", 10, 0, 0, true},
+        {"negative result", -10, 2, -5, false},
+        {"fractional result", 7, 2, 3.5, false},
+    }
+    
+    for _, tt := range tests {
+        result, err := Divide(tt.a, tt.b)
+        hasError := err != nil
+        
+        if hasError != tt.expectError {
+            fmt.Printf("FAIL %s: error expectation mismatch\n", tt.name)
+            continue
+        }
+        
+        if !tt.expectError && result != tt.expected {
+            fmt.Printf("FAIL %s: Divide(%f, %f) = %f, want %f\n", 
+                tt.name, tt.a, tt.b, result, tt.expected)
+        } else {
+            fmt.Printf("PASS %s\n", tt.name)
+        }
+    }
+}
+
+func main() {
+    fmt.Println("Running Add tests:")
+    runAddTests()
+    
+    fmt.Println("\nRunning Divide tests:")
+    runDivideTests()
+}

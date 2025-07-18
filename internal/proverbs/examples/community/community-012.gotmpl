@@ -1,0 +1,44 @@
+type Result struct {
+    BytesRead int64
+    Duration  time.Duration
+    Checksum  string
+}
+
+// Accept interface for flexibility
+func ProcessData(r io.Reader) (*Result, error) {
+    start := time.Now()
+    
+    hash := sha256.New()
+    bytesRead, err := io.Copy(hash, r)
+    if err != nil {
+        return nil, err
+    }
+    
+    duration := time.Since(start)
+    checksum := fmt.Sprintf("%x", hash.Sum(nil))
+    
+    // Return concrete struct for clarity
+    return &Result{
+        BytesRead: bytesRead,
+        Duration:  duration,
+        Checksum:  checksum,
+    }, nil
+}
+
+// Usage with different io.Reader implementations
+func main() {
+    // With file
+    file, _ := os.Open("data.txt")
+    defer file.Close()
+    result1, _ := ProcessData(file)
+    
+    // With string
+    reader := strings.NewReader("hello world")
+    result2, _ := ProcessData(reader)
+    
+    // With bytes
+    buffer := bytes.NewBuffer([]byte("test data"))
+    result3, _ := ProcessData(buffer)
+    
+    fmt.Printf("Results: %+v, %+v, %+v\n", result1, result2, result3)
+}

@@ -1,0 +1,169 @@
+// Mutex profiling for lock contention
+
+// Problematic: Fine-grained locking
+type ProblematicCache struct {
+    items map[string]*CacheItem
+    mu    sync.RWMutex
+}
+
+type CacheItem struct {
+    value     string
+    timestamp time.Time
+    mu        sync.RWMutex // Per-item mutex causes overhead
+}
+
+func (c *ProblematicCache) Get(key string) (string, bool) {
+    c.mu.RLock()
+    item, exists := c.items[key]
+    c.mu.RUnlock()
+    
+    if !exists {
+        return "", false
+    }
+    
+    item.mu.RLock()
+    defer item.mu.RUnlock()
+    return item.value, true
+}
+
+// Better: Coarse-grained locking with sharding
+type ShardedCache struct {
+    shards []*CacheShard
+    mask   uint64
+}
+
+type CacheShard struct {
+    items map[string]CacheValue
+    mu    sync.RWMutex
+}
+
+type CacheValue struct {
+    value     string
+    timestamp time.Time
+}
+
+func NewShardedCache(shardCount int) *ShardedCache {
+    // Ensure power of 2 for efficient modulo
+    if shardCount&(shardCount-1) != 0 {
+        shardCount = 1 << uint(64-bits.LeadingZeros64(uint64(shardCount-1)))
+    }
+    
+    shards := make([]*CacheShard, shardCount)
+    for i := range shards {
+        shards[i] = &CacheShard{
+            items: make(map[string]CacheValue),
+        }
+    }
+    
+    return &ShardedCache{
+        shards: shards,
+        mask:   uint64(shardCount - 1),
+    }
+}
+
+func (c *ShardedCache) getShard(key string) *CacheShard {
+    hash := fnv.New64a()
+    hash.Write([]byte(key))
+    return c.shards[hash.Sum64()&c.mask]
+}
+
+func (c *ShardedCache) Get(key string) (string, bool) {
+    shard := c.getShard(key)
+    shard.mu.RLock()
+    defer shard.mu.RUnlock()
+    
+    item, exists := shard.items[key]
+    if !exists {
+        return "", false
+    }
+    return item.value, true
+}
+
+func (c *ShardedCache) Set(key, value string) {
+    shard := c.getShard(key)
+    shard.mu.Lock()
+    defer shard.mu.Unlock()
+    
+    shard.items[key] = CacheValue{
+        value:     value,
+        timestamp: time.Now(),
+    }
+}
+
+// Lock-free alternative using sync.Map
+type LockFreeCache struct {
+    items sync.Map
+}
+
+func (c *LockFreeCache) Get(key string) (string, bool) {
+    if value, ok := c.items.Load(key); ok {
+        return value.(string), true
+    }
+    return "", false
+}
+
+func (c *LockFreeCache) Set(key, value string) {
+    c.items.Store(key, value)
+}
+
+// Benchmark different approaches
+func BenchmarkCaches(b *testing.B) {
+    keys := make([]string, 1000)
+    for i := range keys {
+        keys[i] = fmt.Sprintf("key-%d", i)
+    }
+    
+    b.Run("ShardedCache", func(b *testing.B) {
+        cache := NewShardedCache(16)
+        b.RunParallel(func(pb *testing.PB) {
+            for pb.Next() {
+                key := keys[rand.Intn(len(keys))]
+                if rand.Intn(10) < 7 { // 70% reads
+                    cache.Get(key)
+                } else { // 30% writes
+                    cache.Set(key, "value")
+                }
+            }
+        })
+    })
+    
+    b.Run("LockFreeCache", func(b *testing.B) {
+        cache := &LockFreeCache{}
+        b.RunParallel(func(pb *testing.PB) {
+            for pb.Next() {
+                key := keys[rand.Intn(len(keys))]
+                if rand.Intn(10) < 7 {
+                    cache.Get(key)
+                } else {
+                    cache.Set(key, "value")
+                }
+            }
+        })
+    })
+}
+
+// Enable mutex profiling
+func enableMutexProfiling() {
+    runtime.SetMutexProfileFraction(1)
+    
+    // Run code with mutex contention
+    cache := NewShardedCache(4)
+    
+    var wg sync.WaitGroup
+    for i := 0; i < 100; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            for j := 0; j < 1000; j++ {
+                key := fmt.Sprintf("key-%d", j%10)
+                cache.Set(key, fmt.Sprintf("value-%d-%d", id, j))
+                cache.Get(key)
+            }
+        }(i)
+    }
+    wg.Wait()
+}
+
+// Usage:
+// go test -mutexprofile=mutex.prof -bench=.
+// go tool pprof mutex.prof

@@ -1,0 +1,70 @@
+// Specification pattern for complex business rules
+type User struct {
+    ID       string
+    Name     string
+    Age      int
+    IsActive bool
+    Role     string
+}
+
+// Base specification interface
+type Specification interface {
+    IsSatisfiedBy(user *User) bool
+}
+
+// Concrete specifications
+type ActiveUserSpec struct{}
+
+func (s ActiveUserSpec) IsSatisfiedBy(user *User) bool {
+    return user.IsActive
+}
+
+type AdultUserSpec struct{}
+
+func (s AdultUserSpec) IsSatisfiedBy(user *User) bool {
+    return user.Age >= 18
+}
+
+type AdminUserSpec struct{}
+
+func (s AdminUserSpec) IsSatisfiedBy(user *User) bool {
+    return user.Role == "admin"
+}
+
+// Composite specifications
+type AndSpec struct {
+    left, right Specification
+}
+
+func (s AndSpec) IsSatisfiedBy(user *User) bool {
+    return s.left.IsSatisfiedBy(user) && s.right.IsSatisfiedBy(user)
+}
+
+type OrSpec struct {
+    left, right Specification
+}
+
+func (s OrSpec) IsSatisfiedBy(user *User) bool {
+    return s.left.IsSatisfiedBy(user) || s.right.IsSatisfiedBy(user)
+}
+
+// Usage example
+func main() {
+    users := []*User{
+        {ID: "1", Name: "Alice", Age: 25, IsActive: true, Role: "user"},
+        {ID: "2", Name: "Bob", Age: 17, IsActive: true, Role: "admin"},
+        {ID: "3", Name: "Carol", Age: 30, IsActive: false, Role: "admin"},
+    }
+    
+    // Complex specification: active adult users OR admin users
+    spec := OrSpec{
+        left:  AndSpec{left: ActiveUserSpec{}, right: AdultUserSpec{}},
+        right: AdminUserSpec{},
+    }
+    
+    for _, user := range users {
+        if spec.IsSatisfiedBy(user) {
+            fmt.Printf("%s matches criteria\n", user.Name)
+        }
+    }
+}

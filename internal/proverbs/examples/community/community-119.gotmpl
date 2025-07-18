@@ -1,0 +1,44 @@
+// Clear is better than clever
+// Write code for humans to read, not to show off
+
+// CLEVER but unclear
+func isEvenClever(n int) bool {
+    return n&1 == 0 // Bitwise AND - clever but obscure
+}
+
+// CLEAR and obvious
+func isEvenClear(n int) bool {
+    return n%2 == 0 // Modulo - immediately understandable
+}
+
+// CLEVER one-liner
+func ternaryClever(condition bool) string {
+    return map[bool]string{true: "yes", false: "no"}[condition]
+}
+
+// CLEAR conditional
+func ternaryClear(condition bool) string {
+    if condition {
+        return "yes"
+    }
+    return "no"
+}
+
+func main() {
+    // Test even number checking
+    num := 42
+    fmt.Printf("Is %d even?\n", num)
+    fmt.Printf("Clever: %v (uses bitwise AND)\n", isEvenClever(num))
+    fmt.Printf("Clear: %v (uses modulo)\n", isEvenClear(num))
+    
+    // Test ternary alternatives
+    condition := true
+    fmt.Printf("\nCondition is %v:\n", condition)
+    fmt.Printf("Clever: %s (map lookup)\n", ternaryClever(condition))
+    fmt.Printf("Clear: %s (if statement)\n", ternaryClear(condition))
+    
+    fmt.Println("\nKey points:")
+    fmt.Println("- Clear code is easier to understand")
+    fmt.Println("- Clever code may confuse other developers")
+    fmt.Println("- Readability trumps showing off")
+}

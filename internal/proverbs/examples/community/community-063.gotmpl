@@ -1,0 +1,42 @@
+// Retry with exponential backoff
+func retryWithBackoff(fn func() error, maxRetries int) error {
+    var lastErr error
+    
+    for i := 0; i < maxRetries; i++ {
+        if err := fn(); err == nil {
+            return nil
+        } else {
+            lastErr = err
+        }
+        
+        if i == maxRetries-1 {
+            break // don't sleep on last attempt
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s, 8s...
+        backoff := time.Duration(1<<i) * time.Second
+        fmt.Printf("Attempt %d failed, retrying in %v\n", i+1, backoff)
+        time.Sleep(backoff)
+    }
+    
+    return fmt.Errorf("operation failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// Simulate unreliable operation
+func unreliableOperation() error {
+    if rand.Float32() < 0.7 { // 70% failure rate
+        return fmt.Errorf("temporary failure")
+    }
+    return nil
+}
+
+func main() {
+    rand.Seed(time.Now().UnixNano())
+    
+    err := retryWithBackoff(unreliableOperation, 4)
+    if err != nil {
+        fmt.Printf("Final error: %v\n", err)
+    } else {
+        fmt.Println("Operation succeeded!")
+    }
+}

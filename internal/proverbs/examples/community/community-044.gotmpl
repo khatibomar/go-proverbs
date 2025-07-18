@@ -1,0 +1,44 @@
+// Interface segregation for testability
+type UserStore interface {
+    Save(user *User) error
+    Get(id string) (*User, error)
+}
+
+type EmailSender interface {
+    Send(to, subject string) error
+}
+
+type User struct {
+    ID    string
+    Email string
+}
+
+type UserService struct {
+    store UserStore
+    email EmailSender
+}
+
+func (s *UserService) CreateUser(email string) error {
+    user := &User{ID: "123", Email: email}
+    if err := s.store.Save(user); err != nil {
+        return err
+    }
+    return s.email.Send(user.Email, "Welcome!")
+}
+
+// Mock for testing
+type MockStore struct{ saved bool }
+func (m *MockStore) Save(*User) error { m.saved = true; return nil }
+func (m *MockStore) Get(string) (*User, error) { return &User{}, nil }
+
+type MockEmail struct{ sent bool }
+func (m *MockEmail) Send(string, string) error { m.sent = true; return nil }
+
+func main() {
+    store := &MockStore{}
+    email := &MockEmail{}
+    service := &UserService{store, email}
+    
+    service.CreateUser("test@example.com")
+    fmt.Printf("Saved: %v, Sent: %v\n", store.saved, email.sent)
+}

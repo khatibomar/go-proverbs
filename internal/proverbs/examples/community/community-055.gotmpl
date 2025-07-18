@@ -1,0 +1,64 @@
+// Factory pattern for object creation
+type Database interface {
+    Connect() error
+    Query(sql string) ([]string, error)
+}
+
+type PostgresDB struct {
+    connectionString string
+}
+
+func (p *PostgresDB) Connect() error {
+    fmt.Println("Connecting to PostgreSQL:", p.connectionString)
+    return nil
+}
+
+func (p *PostgresDB) Query(sql string) ([]string, error) {
+    return []string{"postgres_result"}, nil
+}
+
+type MySQLDB struct {
+    connectionString string
+}
+
+func (m *MySQLDB) Connect() error {
+    fmt.Println("Connecting to MySQL:", m.connectionString)
+    return nil
+}
+
+func (m *MySQLDB) Query(sql string) ([]string, error) {
+    return []string{"mysql_result"}, nil
+}
+
+type DatabaseFactory interface {
+    CreateDB(config Config) Database
+}
+
+type PostgresFactory struct{}
+
+func (f *PostgresFactory) CreateDB(config Config) Database {
+    return &PostgresDB{connectionString: config.PostgresURL}
+}
+
+type MySQLFactory struct{}
+
+func (f *MySQLFactory) CreateDB(config Config) Database {
+    return &MySQLDB{connectionString: config.MySQLURL}
+}
+
+type Config struct {
+    DatabaseType string
+    PostgresURL  string
+    MySQLURL     string
+}
+
+func GetDatabaseFactory(dbType string) DatabaseFactory {
+    switch dbType {
+    case "postgres":
+        return &PostgresFactory{}
+    case "mysql":
+        return &MySQLFactory{}
+    default:
+        return &PostgresFactory{} // default
+    }
+}

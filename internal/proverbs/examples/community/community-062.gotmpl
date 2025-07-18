@@ -1,0 +1,50 @@
+// Bulkhead pattern for fault isolation
+type ServicePool struct {
+    criticalPool chan struct{} // limited resources for critical ops
+    normalPool   chan struct{} // separate pool for normal ops
+}
+
+func NewServicePool(criticalSize, normalSize int) *ServicePool {
+    return &ServicePool{
+        criticalPool: make(chan struct{}, criticalSize),
+        normalPool:   make(chan struct{}, normalSize),
+    }
+}
+
+func (sp *ServicePool) ExecuteCritical(fn func()) error {
+    select {
+    case sp.criticalPool <- struct{}{}:
+        defer func() { <-sp.criticalPool }()
+        fmt.Println("Executing critical operation")
+        fn()
+        return nil
+    case <-time.After(100 * time.Millisecond):
+        return fmt.Errorf("critical pool exhausted")
+    }
+}
+
+func (sp *ServicePool) ExecuteNormal(fn func()) error {
+    select {
+    case sp.normalPool <- struct{}{}:
+        defer func() { <-sp.normalPool }()
+        fmt.Println("Executing normal operation")
+        fn()
+        return nil
+    case <-time.After(50 * time.Millisecond):
+        return fmt.Errorf("normal pool exhausted")
+    }
+}
+
+func main() {
+    pool := NewServicePool(2, 5) // 2 critical, 5 normal
+    
+    // Critical operations have dedicated resources
+    pool.ExecuteCritical(func() {
+        time.Sleep(100 * time.Millisecond)
+    })
+    
+    // Normal operations won't affect critical ones
+    pool.ExecuteNormal(func() {
+        time.Sleep(50 * time.Millisecond)
+    })
+}

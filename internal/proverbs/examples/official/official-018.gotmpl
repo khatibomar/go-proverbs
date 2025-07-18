@@ -1,0 +1,55 @@
+// Bad: Documentation for developers only
+// ProcessPayment processes payment
+func ProcessPayment(amount float64, cardToken string) error {
+	// Validate amount
+	if amount <= 0 {
+		return errors.New("invalid amount")
+	}
+	// Call payment gateway
+	return gateway.Charge(amount, cardToken)
+}
+
+// Good: Documentation for users
+// ProcessPayment charges a payment method for the specified amount.
+//
+// This function handles the complete payment flow including validation,
+// fraud detection, and communication with the payment gateway.
+//
+// Parameters:
+//   - amount: The payment amount in USD (must be positive)
+//   - cardToken: A secure token representing the payment method
+//
+// Returns an error if:
+//   - The amount is zero or negative
+//   - The card token is invalid or expired
+//   - The payment is declined by the bank
+//   - Network issues prevent communication with the payment gateway
+//
+// Example usage:
+//   err := ProcessPayment(29.99, "tok_1234567890")
+//   if err != nil {
+//       log.Printf("Payment failed: %v", err)
+//       return err
+//   }
+//   fmt.Println("Payment successful!")
+//
+// Note: This function may take up to 30 seconds to complete due to
+// external API calls. Consider using context.WithTimeout for long-running
+// operations.
+func ProcessPaymentWithDocs(amount float64, cardToken string) error {
+	if amount <= 0 {
+		return fmt.Errorf("amount must be positive, got %.2f", amount)
+	}
+	
+	if cardToken == "" {
+		return errors.New("card token is required")
+	}
+	
+	// Process the payment with detailed error context
+	err := gateway.Charge(amount, cardToken)
+	if err != nil {
+		return fmt.Errorf("payment processing failed: %w", err)
+	}
+	
+	return nil
+}

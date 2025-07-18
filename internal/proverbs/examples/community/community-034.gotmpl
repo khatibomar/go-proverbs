@@ -1,0 +1,34 @@
+// Timeout pattern with context
+func longRunningOperation(ctx context.Context) error {
+    select {
+    case <-time.After(2 * time.Second): // Simulate long operation
+        return nil
+    case <-ctx.Done():
+        return ctx.Err()
+    }
+}
+
+func main() {
+    ctx := context.Background()
+    
+    // Set timeout
+    ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+    defer cancel()
+    
+    done := make(chan error, 1)
+    
+    go func() {
+        done <- longRunningOperation(ctx)
+    }()
+    
+    select {
+    case err := <-done:
+        if err != nil {
+            fmt.Printf("Operation failed: %v\n", err)
+        } else {
+            fmt.Println("Operation completed successfully")
+        }
+    case <-ctx.Done():
+        fmt.Printf("Operation timed out: %v\n", ctx.Err())
+    }
+}

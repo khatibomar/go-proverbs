@@ -1,0 +1,182 @@
+// Goroutine profiling for leak detection
+
+// Goroutine leak example - problematic
+func goroutineLeakExample() {
+    for i := 0; i < 1000; i++ {
+        go func(id int) {
+            // This goroutine never exits - LEAK!
+            for {
+                time.Sleep(time.Second)
+                fmt.Printf("Goroutine %d is running\n", id)
+            }
+        }(i)
+    }
+}
+
+// Fixed version with context cancellation
+func fixedGoroutineExample(ctx context.Context) {
+    for i := 0; i < 1000; i++ {
+        go func(id int) {
+            ticker := time.NewTicker(time.Second)
+            defer ticker.Stop()
+            
+            for {
+                select {
+                case <-ctx.Done():
+                    fmt.Printf("Goroutine %d shutting down\n", id)
+                    return
+                case <-ticker.C:
+                    fmt.Printf("Goroutine %d is running\n", id)
+                }
+            }
+        }(i)
+    }
+}
+
+// Worker pool to limit goroutines
+type WorkerPool struct {
+    workers   int
+    taskQueue chan func()
+    wg        sync.WaitGroup
+    ctx       context.Context
+    cancel    context.CancelFunc
+}
+
+func NewWorkerPool(workers int) *WorkerPool {
+    ctx, cancel := context.WithCancel(context.Background())
+    
+    wp := &WorkerPool{
+        workers:   workers,
+        taskQueue: make(chan func(), workers*2),
+        ctx:       ctx,
+        cancel:    cancel,
+    }
+    
+    wp.start()
+    return wp
+}
+
+func (wp *WorkerPool) start() {
+    for i := 0; i < wp.workers; i++ {
+        wp.wg.Add(1)
+        go func(id int) {
+            defer wp.wg.Done()
+            
+            for {
+                select {
+                case task := <-wp.taskQueue:
+                    task()
+                case <-wp.ctx.Done():
+                    return
+                }
+            }
+        }(i)
+    }
+}
+
+func (wp *WorkerPool) Submit(task func()) {
+    select {
+    case wp.taskQueue <- task:
+    case <-wp.ctx.Done():
+        return
+    }
+}
+
+func (wp *WorkerPool) Shutdown() {
+    wp.cancel()
+    close(wp.taskQueue)
+    wp.wg.Wait()
+}
+
+// Goroutine monitoring
+func monitorGoroutines() {
+    ticker := time.NewTicker(5 * time.Second)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ticker.C:
+            count := runtime.NumGoroutine()
+            fmt.Printf("Current goroutines: %d\n", count)
+            
+            if count > 1000 {
+                fmt.Println("WARNING: High goroutine count detected!")
+                
+                // Get goroutine profile
+                buf := make([]byte, 1<<20) // 1MB buffer
+                stackSize := runtime.Stack(buf, true)
+                fmt.Printf("Stack trace:\n%s\n", buf[:stackSize])
+            }
+        }
+    }
+}
+
+// Graceful shutdown pattern
+type Server struct {
+    ctx    context.Context
+    cancel context.CancelFunc
+    wg     sync.WaitGroup
+}
+
+func NewServer() *Server {
+    ctx, cancel := context.WithCancel(context.Background())
+    return &Server{
+        ctx:    ctx,
+        cancel: cancel,
+    }
+}
+
+func (s *Server) Start() {
+    // Start background workers
+    s.wg.Add(1)
+    go s.backgroundWorker("worker-1")
+    
+    s.wg.Add(1)
+    go s.backgroundWorker("worker-2")
+    
+    // Start monitoring
+    s.wg.Add(1)
+    go s.monitor()
+}
+
+func (s *Server) backgroundWorker(name string) {
+    defer s.wg.Done()
+    
+    ticker := time.NewTicker(time.Second)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-s.ctx.Done():
+            fmt.Printf("%s shutting down\n", name)
+            return
+        case <-ticker.C:
+            // Do work
+            fmt.Printf("%s processing\n", name)
+        }
+    }
+}
+
+func (s *Server) monitor() {
+    defer s.wg.Done()
+    
+    for {
+        select {
+        case <-s.ctx.Done():
+            return
+        case <-time.After(10 * time.Second):
+            fmt.Printf("Goroutines: %d\n", runtime.NumGoroutine())
+        }
+    }
+}
+
+func (s *Server) Shutdown() {
+    s.cancel()
+    s.wg.Wait()
+    fmt.Println("Server shutdown complete")
+}
+
+// Usage:
+// go tool pprof http://localhost:6060/debug/pprof/goroutine
+// (pprof) top10
+// (pprof) traces

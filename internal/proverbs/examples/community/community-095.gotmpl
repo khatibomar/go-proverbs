@@ -1,0 +1,88 @@
+// Connection pooling for database efficiency
+func setupDatabase() *sql.DB {
+    db, err := sql.Open("postgres", "connection-string")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Configure connection pool
+    db.SetMaxOpenConns(25)                 // Maximum open connections
+    db.SetMaxIdleConns(5)                  // Maximum idle connections
+    db.SetConnMaxLifetime(5 * time.Minute) // Connection lifetime
+    db.SetConnMaxIdleTime(1 * time.Minute) // Idle connection timeout
+    
+    return db
+}
+
+// Monitor connection pool health
+func monitorConnectionPool(db *sql.DB) {
+    ticker := time.NewTicker(30 * time.Second)
+    defer ticker.Stop()
+    
+    for range ticker.C {
+        stats := db.Stats()
+        
+        log.Printf("DB Pool Stats:")
+        log.Printf("  Open connections: %d", stats.OpenConnections)
+        log.Printf("  In use: %d", stats.InUse)
+        log.Printf("  Idle: %d", stats.Idle)
+        log.Printf("  Wait count: %d", stats.WaitCount)
+        log.Printf("  Wait duration: %v", stats.WaitDuration)
+        
+        // Alert if pool is under pressure
+        if stats.WaitCount > 0 {
+            log.Printf("WARNING: Connection pool under pressure")
+        }
+        
+        // Alert if too many idle connections
+        if stats.Idle > 10 {
+            log.Printf("INFO: Consider reducing MaxIdleConns")
+        }
+    }
+}
+
+// Repository with proper connection handling
+type UserRepository struct {
+    db *sql.DB
+}
+
+func (r *UserRepository) GetUser(id string) (*User, error) {
+    // Connection is automatically managed by the pool
+    row := r.db.QueryRow("SELECT id, name, email FROM users WHERE id = $1", id)
+    
+    var user User
+    err := row.Scan(&user.ID, &user.Name, &user.Email)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, fmt.Errorf("user not found: %s", id)
+        }
+        return nil, fmt.Errorf("failed to scan user: %w", err)
+    }
+    
+    return &user, nil
+}
+
+func (r *UserRepository) CreateUser(user *User) error {
+    // Use transaction for consistency
+    tx, err := r.db.Begin()
+    if err != nil {
+        return fmt.Errorf("failed to begin transaction: %w", err)
+    }
+    defer tx.Rollback() // Safe to call even after commit
+    
+    _, err = tx.Exec(
+        "INSERT INTO users (id, name, email) VALUES ($1, $2, $3)",
+        user.ID, user.Name, user.Email,
+    )
+    if err != nil {
+        return fmt.Errorf("failed to insert user: %w", err)
+    }
+    
+    return tx.Commit()
+}
+
+// Connection pool tuning guidelines:
+// - MaxOpenConns: Usually 2-3x number of CPU cores
+// - MaxIdleConns: 10-20% of MaxOpenConns
+// - ConnMaxLifetime: 5-15 minutes (avoid long-lived connections)
+// - ConnMaxIdleTime: 1-5 minutes (release unused connections)

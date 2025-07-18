@@ -1,0 +1,62 @@
+// Avoid premature optimization - measure first
+func simpleSearch(data []string, target string) int {
+    for i, item := range data {
+        if item == target {
+            return i
+        }
+    }
+    return -1
+}
+
+func optimizedSearch(data []string, target string) int {
+    // "Optimized" with binary search - but only works on sorted data!
+    left, right := 0, len(data)-1
+    
+    for left <= right {
+        mid := (left + right) / 2
+        if data[mid] == target {
+            return mid
+        }
+        if data[mid] < target {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    return -1
+}
+
+func benchmark(name string, fn func() int, iterations int) {
+    start := time.Now()
+    var result int
+    
+    for i := 0; i < iterations; i++ {
+        result = fn()
+    }
+    
+    duration := time.Since(start)
+    fmt.Printf("%s: %v (result: %d)\n", name, duration, result)
+}
+
+func main() {
+    // Small dataset - premature optimization may hurt
+    smallData := []string{"apple", "banana", "cherry", "date"}
+    target := "cherry"
+    
+    fmt.Println("Small dataset (4 items):")
+    benchmark("Simple search", func() int {
+        return simpleSearch(smallData, target)
+    }, 100000)
+    
+    // Binary search requires sorted data
+    sortedData := make([]string, len(smallData))
+    copy(sortedData, smallData)
+    sort.Strings(sortedData)
+    
+    benchmark("Binary search", func() int {
+        return optimizedSearch(sortedData, target)
+    }, 100000)
+    
+    fmt.Println("\nLesson: For small datasets, simple solutions often perform better.")
+    fmt.Println("Always measure before optimizing!")
+}

@@ -1,0 +1,36 @@
+// Bad: Adding dependency for simple functionality
+import "github.com/some-org/string-utils" // 50MB dependency
+
+func processText(text string) string {
+	return stringutils.Capitalize(text) // Just capitalizes first letter
+}
+
+// Good: A little copying is better
+func processTextSimple(text string) string {
+	if len(text) == 0 {
+		return text
+	}
+	return strings.ToUpper(text[:1]) + text[1:]
+}
+
+// Bad: Heavy dependency for simple math
+import "github.com/complex-math/advanced" // 100MB+ dependency
+
+func calculateTax(amount float64) float64 {
+	return advanced.Multiply(amount, 0.08) // Just multiplication
+}
+
+// Good: Simple copying
+func calculateTaxSimple(amount float64) float64 {
+	return amount * 0.08
+}
+
+// When to use dependencies:
+// - Complex functionality (crypto, parsing, protocols)
+// - Well-maintained, stable libraries
+// - Functionality that's hard to implement correctly
+
+// When to copy:
+// - Simple utility functions
+// - Small, self-contained logic
+// - Avoiding large dependencies for trivial features

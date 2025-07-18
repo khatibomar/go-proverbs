@@ -1,0 +1,48 @@
+// Cancellation propagation through context
+func worker(ctx context.Context, id int) error {
+    for i := 0; i < 10; i++ {
+        select {
+        case <-ctx.Done():
+            fmt.Printf("Worker %d cancelled: %v\n", id, ctx.Err())
+            return ctx.Err()
+        default:
+            if err := doWork(ctx, id, i); err != nil {
+                return err
+            }
+            time.Sleep(100 * time.Millisecond)
+        }
+    }
+    fmt.Printf("Worker %d completed\n", id)
+    return nil
+}
+
+func doWork(ctx context.Context, workerID, taskID int) error {
+    // Check cancellation before expensive work
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    default:
+    }
+    
+    fmt.Printf("Worker %d processing task %d\n", workerID, taskID)
+    return nil
+}
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+    defer cancel()
+    
+    var wg sync.WaitGroup
+    
+    // Start multiple workers
+    for i := 1; i <= 3; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            worker(ctx, id)
+        }(i)
+    }
+    
+    wg.Wait()
+    fmt.Println("All workers finished")
+}

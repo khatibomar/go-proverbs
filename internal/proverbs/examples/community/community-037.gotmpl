@@ -1,0 +1,50 @@
+// sync.Cond for complex synchronization
+var (
+    mu        sync.Mutex
+    cond      = sync.NewCond(&mu)
+    ready     bool
+    data      []string
+)
+
+func consumer(id int) {
+    mu.Lock()
+    defer mu.Unlock()
+    
+    // Wait for condition
+    for !ready {
+        fmt.Printf("Consumer %d waiting...\n", id)
+        cond.Wait()
+    }
+    
+    fmt.Printf("Consumer %d processing data: %v\n", id, data)
+}
+
+func producer() {
+    time.Sleep(time.Second) // Simulate preparation
+    
+    mu.Lock()
+    data = []string{"item1", "item2", "item3"}
+    ready = true
+    fmt.Println("Producer: data ready")
+    mu.Unlock()
+    
+    cond.Broadcast() // Wake up all waiting consumers
+}
+
+func main() {
+    var wg sync.WaitGroup
+    
+    // Start consumers
+    for i := 1; i <= 3; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            consumer(id)
+        }(i)
+    }
+    
+    // Start producer
+    go producer()
+    
+    wg.Wait()
+}

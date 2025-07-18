@@ -1,0 +1,36 @@
+// Bad: Reflection everywhere
+func processAny(v interface{}) interface{} {
+	val := reflect.ValueOf(v)
+	switch val.Kind() {
+	case reflect.String:
+		return strings.ToUpper(val.String())
+	case reflect.Int:
+		return val.Int() * 2
+	default:
+		return v
+	}
+}
+
+// Good: Use interfaces and type assertions
+type Processor interface {
+	Process() interface{}
+}
+
+type StringData struct{ Value string }
+func (s StringData) Process() interface{} {
+	return strings.ToUpper(s.Value)
+}
+
+type IntData struct{ Value int }
+func (i IntData) Process() interface{} {
+	return i.Value * 2
+}
+
+// Better: Use generics (Go 1.18+)
+func processGeneric[T any](v T, fn func(T) T) T {
+	return fn(v)
+}
+
+// Usage
+result := processGeneric("hello", strings.ToUpper)
+number := processGeneric(5, func(n int) int { return n * 2 })

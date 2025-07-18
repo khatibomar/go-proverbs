@@ -1,0 +1,93 @@
+// Streaming for large data processing
+func ProcessLargeFile(filename string) error {
+    file, err := os.Open(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+    
+    scanner := bufio.NewScanner(file)
+    lineCount := 0
+    
+    for scanner.Scan() {
+        line := scanner.Text()
+        if err := processLine(line); err != nil {
+            return fmt.Errorf("error processing line %d: %w", lineCount, err)
+        }
+        lineCount++
+    }
+    
+    return scanner.Err()
+}
+
+func processLine(line string) error {
+    // Process each line individually
+    if strings.TrimSpace(line) == "" {
+        return nil // Skip empty lines
+    }
+    
+    // Simulate processing
+    fmt.Printf("Processing: %s\n", line[:min(len(line), 50)])
+    return nil
+}
+
+// Stream processing with channels
+func StreamProcess(input <-chan string, output chan<- string) {
+    defer close(output)
+    
+    for data := range input {
+        processed := strings.ToUpper(data)
+        output <- processed
+    }
+}
+
+// Pipeline example
+func ProcessDataPipeline(data []string) []string {
+    // Stage 1: Input
+    input := make(chan string, 10)
+    go func() {
+        defer close(input)
+        for _, item := range data {
+            input <- item
+        }
+    }()
+    
+    // Stage 2: Transform
+    transformed := make(chan string, 10)
+    go StreamProcess(input, transformed)
+    
+    // Stage 3: Collect results
+    var results []string
+    for result := range transformed {
+        results = append(results, result)
+    }
+    
+    return results
+}
+
+// Memory-efficient JSON streaming
+func ProcessJSONStream(r io.Reader) error {
+    decoder := json.NewDecoder(r)
+    
+    for {
+        var item map[string]interface{}
+        if err := decoder.Decode(&item); err != nil {
+            if err == io.EOF {
+                break
+            }
+            return err
+        }
+        
+        // Process item without loading entire file
+        fmt.Printf("Processing item: %v\n", item["id"])
+    }
+    
+    return nil
+}
+
+func min(a, b int) int {
+    if a < b {
+        return a
+    }
+    return b
+}

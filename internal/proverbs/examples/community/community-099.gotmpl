@@ -1,0 +1,104 @@
+// CPU profiling to identify bottlenecks
+
+// Enable pprof in production (import side effect)
+// import _ "net/http/pprof"
+
+func setupProfiling() {
+    // Start pprof server in goroutine
+    go func() {
+        log.Println("Profiling server starting on :6060")
+        log.Println(http.ListenAndServe(":6060", nil))
+    }()
+}
+
+// Example function to profile
+func expensiveOperation(data []int) int {
+    sum := 0
+    for i := 0; i < 1000000; i++ {
+        for _, v := range data {
+            sum += v * v // Expensive computation
+        }
+    }
+    return sum
+}
+
+// Benchmark for profiling
+func BenchmarkExpensiveOperation(b *testing.B) {
+    data := make([]int, 1000)
+    for i := range data {
+        data[i] = i
+    }
+    
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        expensiveOperation(data)
+    }
+}
+
+// Profile-guided optimization example
+func optimizedOperation(data []int) int {
+    if len(data) == 0 {
+        return 0
+    }
+    
+    sum := 0
+    // Cache length to avoid repeated calls
+    length := len(data)
+    
+    for i := 0; i < 1000000; i++ {
+        for j := 0; j < length; j++ {
+            v := data[j]
+            sum += v * v
+        }
+    }
+    return sum
+}
+
+// Runtime profiling in code
+func profiledFunction() {
+    // Start CPU profiling
+    f, err := os.Create("cpu.prof")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer f.Close()
+    
+    pprof.StartCPUProfile(f)
+    defer pprof.StopCPUProfile()
+    
+    // Your expensive code here
+    data := make([]int, 1000)
+    for i := range data {
+        data[i] = i
+    }
+    
+    result := expensiveOperation(data)
+    fmt.Printf("Result: %d\n", result)
+}
+
+// Memory profiling
+func memoryProfile() {
+    // Allocate some memory
+    data := make([][]int, 1000)
+    for i := range data {
+        data[i] = make([]int, 1000)
+    }
+    
+    // Write memory profile
+    f, err := os.Create("mem.prof")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer f.Close()
+    
+    runtime.GC() // Force GC before profiling
+    pprof.WriteHeapProfile(f)
+    
+    _ = data // Use data to prevent optimization
+}
+
+// Usage:
+// go test -bench=. -cpuprofile=cpu.prof
+// go tool pprof cpu.prof
+// (pprof) top10
+// (pprof) web

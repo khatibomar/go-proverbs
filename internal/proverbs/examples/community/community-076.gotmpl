@@ -1,0 +1,86 @@
+// Implement distributed tracing with context
+type Span struct {
+    TraceID   string
+    Operation string
+    StartTime time.Time
+}
+
+type Tracer struct {
+    spans []Span
+}
+
+func NewTracer() *Tracer {
+    return &Tracer{spans: make([]Span, 0)}
+}
+
+func (t *Tracer) StartSpan(ctx context.Context, operation string) (context.Context, *Span) {
+    traceID := t.getTraceID(ctx)
+    span := &Span{
+        TraceID:   traceID,
+        Operation: operation,
+        StartTime: time.Now(),
+    }
+    
+    t.spans = append(t.spans, *span)
+    return context.WithValue(ctx, "current_span", span), span
+}
+
+func (t *Tracer) getTraceID(ctx context.Context) string {
+    if span, ok := ctx.Value("current_span").(*Span); ok {
+        return span.TraceID
+    }
+    return fmt.Sprintf("trace-%d", time.Now().UnixNano())
+}
+
+func (s *Span) Finish() {
+    duration := time.Since(s.StartTime)
+    fmt.Printf("Span: %s [%s] took %v\n", s.Operation, s.TraceID, duration)
+}
+
+func processRequest(ctx context.Context, tracer *Tracer, userID string) error {
+    ctx, span := tracer.StartSpan(ctx, "process_request")
+    defer span.Finish()
+    
+    if err := validateUser(ctx, tracer, userID); err != nil {
+        return err
+    }
+    
+    return fetchData(ctx, tracer, userID)
+}
+
+func validateUser(ctx context.Context, tracer *Tracer, userID string) error {
+    _, span := tracer.StartSpan(ctx, "validate_user")
+    defer span.Finish()
+    
+    time.Sleep(50 * time.Millisecond)
+    
+    if userID == "invalid" {
+        return fmt.Errorf("invalid user ID")
+    }
+    return nil
+}
+
+func fetchData(ctx context.Context, tracer *Tracer, userID string) error {
+    _, span := tracer.StartSpan(ctx, "fetch_data")
+    defer span.Finish()
+    
+    time.Sleep(100 * time.Millisecond)
+    return nil
+}
+
+func main() {
+    tracer := NewTracer()
+    ctx := context.Background()
+    
+    fmt.Println("Processing valid request:")
+    if err := processRequest(ctx, tracer, "user-123"); err != nil {
+        fmt.Printf("Request failed: %v\n", err)
+    }
+    
+    fmt.Println("\nProcessing invalid request:")
+    if err := processRequest(ctx, tracer, "invalid"); err != nil {
+        fmt.Printf("Request failed: %v\n", err)
+    }
+    
+    fmt.Printf("\nTotal spans: %d\n", len(tracer.spans))
+}

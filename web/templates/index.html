@@ -1,0 +1,45 @@
+{{define "index-content"}}
+<h1>Go Proverbs</h1>
+<p>Simple, idiomatic Go wisdom for better programming</p>
+
+<div style="display: flex; justify-content: center; gap: 40px; margin: 30px 0; flex-wrap: wrap;">
+    <div style="text-align: center; background: #f9f9f9; padding: 20px; border-radius: 8px;">
+        <span style="font-size: 2em; font-weight: bold; color: #007acc; display: block;">{{.Stats.Total}}</span>
+        <span style="color: #666; font-size: 0.9em; text-transform: uppercase;">Total Proverbs</span>
+    </div>
+    <div style="text-align: center; background: #f9f9f9; padding: 20px; border-radius: 8px;">
+        <span style="font-size: 2em; font-weight: bold; color: #007acc; display: block;">{{.Stats.Official}}</span>
+        <span style="color: #666; font-size: 0.9em; text-transform: uppercase;">Official</span>
+    </div>
+    <div style="text-align: center; background: #f9f9f9; padding: 20px; border-radius: 8px;">
+        <span style="font-size: 2em; font-weight: bold; color: #007acc; display: block;">{{.Stats.Community}}</span>
+        <span style="color: #666; font-size: 0.9em; text-transform: uppercase;">Community</span>
+    </div>
+</div>
+
+<h2>Categories</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
+    {{range $category, $count := .Stats.Categories}}
+    <div style="background: #f9f9f9; padding: 25px; border-radius: 8px; transition: transform 0.2s;">
+        <h3><a href="/categories/{{$category}}">{{$category | formatCategory}}</a></h3>
+        <p style="color: #666; margin-bottom: 15px;">Go proverbs about {{$category | formatCategory | lower}} programming concepts and best practices.</p>
+        <span style="color: #999; font-size: 0.9em;">{{$count}} proverbs</span>
+    </div>
+    {{end}}
+</div>
+
+<h2>Recent Proverbs</h2>
+{{range .Proverbs}}
+<div style="border-left: 4px solid #007acc; padding: 15px 20px; margin-bottom: 15px; background: #f9f9f9;">
+    <div style="font-style: italic; margin-bottom: 8px; font-size: 1.1em;"><a href="/proverbs/{{.ID}}" style="text-decoration: none; color: inherit;">"{{.Text}}"</a></div>
+    <div style="color: #666; font-size: 0.9em;">— {{.Source}}</div>
+</div>
+{{end}}
+
+{{if not .Proverbs}}
+<div style="text-align: center; padding: 40px; color: #666;">
+    <h3>No proverbs found</h3>
+    <p>Check back later for more content.</p>
+</div>
+{{end}}
+{{end}}

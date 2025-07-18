@@ -1,0 +1,57 @@
+// Bad: Using Cgo for everything
+package main
+
+/*
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int add(int a, int b) {
+    return a + b;
+}
+
+char* concat_strings(char* a, char* b) {
+    char* result = malloc(strlen(a) + strlen(b) + 1);
+    strcpy(result, a);
+    strcat(result, b);
+    return result;
+}
+*/
+import "C"
+import "unsafe"
+
+// Unnecessary Cgo for simple operations
+func addNumbers(a, b int) int {
+	return int(C.add(C.int(a), C.int(b))) // Huge overhead for simple addition
+}
+
+func concatStrings(a, b string) string {
+	ca := C.CString(a)
+	cb := C.CString(b)
+	defer C.free(unsafe.Pointer(ca))
+	defer C.free(unsafe.Pointer(cb))
+	
+	result := C.concat_strings(ca, cb)
+	defer C.free(unsafe.Pointer(result))
+	return C.GoString(result)
+}
+
+// Good: Pure Go solutions
+func addNumbersPure(a, b int) int {
+	return a + b // Simple, fast, and safe
+}
+
+func concatStringsPure(a, b string) string {
+	return a + b // Much faster than Cgo version
+}
+
+// Cgo is appropriate for:
+// - Interfacing with existing C libraries
+// - Performance-critical code that benefits from C optimizations
+// - Hardware-specific operations
+
+// Cgo overhead:
+// - Function call overhead (can be 100x slower)
+// - Memory management complexity
+// - Cross-compilation issues
+// - Debugging difficulties

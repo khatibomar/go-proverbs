@@ -1,0 +1,29 @@
+// unsafe for performance-critical code (use with extreme caution)
+func stringToBytes(s string) []byte {
+    // WARNING: This is unsafe and should only be used when:
+    // 1. You know the string won't be modified
+    // 2. Performance is absolutely critical
+    // 3. You understand the risks
+    
+    return unsafe.Slice(unsafe.StringData(s), len(s))
+}
+
+func bytesToString(b []byte) string {
+    // WARNING: Unsafe conversion - use only for read-only operations
+    return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
+func main() {
+    s := "Hello, World!"
+    
+    // Zero-copy conversion to []byte
+    b := stringToBytes(s)
+    fmt.Printf("String: %s\n", s)
+    fmt.Printf("Bytes: %v\n", b)
+    
+    // Zero-copy conversion back to string
+    s2 := bytesToString(b)
+    fmt.Printf("Back to string: %s\n", s2)
+    
+    fmt.Println("WARNING: Use unsafe only when absolutely necessary!")
+}

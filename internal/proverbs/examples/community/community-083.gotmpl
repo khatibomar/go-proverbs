@@ -1,0 +1,59 @@
+// Use value objects for domain modeling
+
+// Email value object with validation
+type Email struct {
+    address string
+}
+
+func NewEmail(address string) (Email, error) {
+    if !strings.Contains(address, "@") {
+        return Email{}, errors.New("invalid email format")
+    }
+    return Email{address: address}, nil
+}
+
+func (e Email) Address() string {
+    return e.address
+}
+
+func (e Email) Domain() string {
+    parts := strings.Split(e.address, "@")
+    return parts[1]
+}
+
+// Money value object with currency
+type Money struct {
+    amount   decimal.Decimal
+    currency string
+}
+
+func NewMoney(amount float64, currency string) (Money, error) {
+    if amount < 0 {
+        return Money{}, errors.New("amount cannot be negative")
+    }
+    
+    validCurrencies := map[string]bool{"USD": true, "EUR": true, "GBP": true}
+    if !validCurrencies[currency] {
+        return Money{}, errors.New("unsupported currency")
+    }
+    
+    return Money{
+        amount:   decimal.NewFromFloat(amount),
+        currency: currency,
+    }, nil
+}
+
+func (m Money) Add(other Money) (Money, error) {
+    if m.currency != other.currency {
+        return Money{}, errors.New("cannot add different currencies")
+    }
+    
+    return Money{
+        amount:   m.amount.Add(other.amount),
+        currency: m.currency,
+    }, nil
+}
+
+func (m Money) String() string {
+    return fmt.Sprintf("%s %s", m.amount.String(), m.currency)
+}

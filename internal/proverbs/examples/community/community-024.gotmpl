@@ -1,0 +1,26 @@
+// Non-blocking channel operations
+func main() {
+    ch := make(chan string, 1)
+    
+    // Non-blocking send
+    select {
+    case ch <- "message":
+        fmt.Println("Message sent")
+    default:
+        fmt.Println("Channel full")
+    }
+    
+    // Non-blocking receive
+    select {
+    case msg := <-ch:
+        fmt.Printf("Received: %s\n", msg)
+    default:
+        fmt.Println("No message")
+    }
+    
+    // With timeout
+    select {
+    case <-time.After(1 * time.Second):
+        fmt.Println("Timeout")
+    }
+}

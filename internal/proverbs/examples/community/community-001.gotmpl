@@ -1,0 +1,20 @@
+func ProcessRequest(ctx context.Context, req *Request) (*Response, error) {
+    // Check if context is cancelled
+    select {
+    case <-ctx.Done():
+        return nil, ctx.Err()
+    default:
+    }
+    
+    // Pass context to downstream functions
+    result, err := fetchData(ctx, req.ID)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Use context with timeout for external calls
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+    
+    return processData(ctx, result)
+}

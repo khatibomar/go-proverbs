@@ -1,0 +1,238 @@
+// Performance testing beyond benchmarks
+
+// Load testing with concurrent requests
+func LoadTest(handler http.HandlerFunc, concurrent int, requests int) {
+    server := httptest.NewServer(handler)
+    defer server.Close()
+    
+    var wg sync.WaitGroup
+    results := make(chan time.Duration, requests)
+    
+    // Launch concurrent workers
+    for i := 0; i < concurrent; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            
+            client := &http.Client{Timeout: 5 * time.Second}
+            
+            for j := 0; j < requests/concurrent; j++ {
+                start := time.Now()
+                
+                resp, err := client.Get(server.URL)
+                if err != nil {
+                    fmt.Printf("Request failed: %v\n", err)
+                    continue
+                }
+                resp.Body.Close()
+                
+                duration := time.Since(start)
+                results <- duration
+            }
+        }()
+    }
+    
+    // Collect results
+    go func() {
+        wg.Wait()
+        close(results)
+    }()
+    
+    // Analyze performance
+    var durations []time.Duration
+    for duration := range results {
+        durations = append(durations, duration)
+    }
+    
+    analyzePerformance(durations)
+}
+
+func analyzePerformance(durations []time.Duration) {
+    if len(durations) == 0 {
+        return
+    }
+    
+    // Sort for percentile calculations
+    sort.Slice(durations, func(i, j int) bool {
+        return durations[i] < durations[j]
+    })
+    
+    total := time.Duration(0)
+    for _, d := range durations {
+        total += d
+    }
+    
+    avg := total / time.Duration(len(durations))
+    p50 := durations[len(durations)*50/100]
+    p95 := durations[len(durations)*95/100]
+    p99 := durations[len(durations)*99/100]
+    
+    fmt.Printf("Performance Results:\n")
+    fmt.Printf("  Requests: %d\n", len(durations))
+    fmt.Printf("  Average: %v\n", avg)
+    fmt.Printf("  P50: %v\n", p50)
+    fmt.Printf("  P95: %v\n", p95)
+    fmt.Printf("  P99: %v\n", p99)
+    fmt.Printf("  Min: %v\n", durations[0])
+    fmt.Printf("  Max: %v\n", durations[len(durations)-1])
+}
+
+// Stress testing with resource monitoring
+type ResourceMonitor struct {
+    startTime time.Time
+    samples   []ResourceSample
+    mu        sync.Mutex
+}
+
+type ResourceSample struct {
+    Timestamp   time.Time
+    Goroutines  int
+    MemAlloc    uint64
+    MemSys      uint64
+    GCPauses    uint64
+}
+
+func NewResourceMonitor() *ResourceMonitor {
+    return &ResourceMonitor{
+        startTime: time.Now(),
+    }
+}
+
+func (rm *ResourceMonitor) Start(interval time.Duration) {
+    ticker := time.NewTicker(interval)
+    go func() {
+        defer ticker.Stop()
+        for range ticker.C {
+            rm.sample()
+        }
+    }()
+}
+
+func (rm *ResourceMonitor) sample() {
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    
+    sample := ResourceSample{
+        Timestamp:  time.Now(),
+        Goroutines: runtime.NumGoroutine(),
+        MemAlloc:   m.Alloc,
+        MemSys:     m.Sys,
+        GCPauses:   m.PauseTotalNs,
+    }
+    
+    rm.mu.Lock()
+    rm.samples = append(rm.samples, sample)
+    rm.mu.Unlock()
+}
+
+func (rm *ResourceMonitor) Report() {
+    rm.mu.Lock()
+    samples := make([]ResourceSample, len(rm.samples))
+    copy(samples, rm.samples)
+    rm.mu.Unlock()
+    
+    if len(samples) == 0 {
+        return
+    }
+    
+    fmt.Printf("Resource Usage Report:\n")
+    fmt.Printf("  Duration: %v\n", time.Since(rm.startTime))
+    fmt.Printf("  Samples: %d\n", len(samples))
+    
+    // Calculate averages
+    var totalGoroutines, totalMem uint64
+    maxGoroutines, maxMem := 0, uint64(0)
+    
+    for _, sample := range samples {
+        totalGoroutines += uint64(sample.Goroutines)
+        totalMem += sample.MemAlloc
+        
+        if sample.Goroutines > maxGoroutines {
+            maxGoroutines = sample.Goroutines
+        }
+        if sample.MemAlloc > maxMem {
+            maxMem = sample.MemAlloc
+        }
+    }
+    
+    avgGoroutines := totalGoroutines / uint64(len(samples))
+    avgMem := totalMem / uint64(len(samples))
+    
+    fmt.Printf("  Avg Goroutines: %d (max: %d)\n", avgGoroutines, maxGoroutines)
+    fmt.Printf("  Avg Memory: %d KB (max: %d KB)\n", avgMem/1024, maxMem/1024)
+}
+
+// Performance regression testing
+func TestPerformanceRegression(t *testing.T) {
+    // Baseline performance expectations
+    maxDuration := 100 * time.Millisecond
+    maxMemory := uint64(10 * 1024 * 1024) // 10MB
+    
+    monitor := NewResourceMonitor()
+    monitor.Start(10 * time.Millisecond)
+    
+    start := time.Now()
+    
+    // Run the operation under test
+    result := performExpensiveOperation()
+    
+    duration := time.Since(start)
+    
+    // Check performance constraints
+    if duration > maxDuration {
+        t.Errorf("Operation took %v, expected < %v", duration, maxDuration)
+    }
+    
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    if m.Alloc > maxMemory {
+        t.Errorf("Memory usage %d bytes, expected < %d bytes", m.Alloc, maxMemory)
+    }
+    
+    monitor.Report()
+    _ = result
+}
+
+func performExpensiveOperation() []int {
+    data := make([]int, 100000)
+    for i := range data {
+        data[i] = i * i
+    }
+    return data
+}
+
+// Throughput testing
+func MeasureThroughput(operation func(), duration time.Duration) {
+    start := time.Now()
+    count := 0
+    
+    for time.Since(start) < duration {
+        operation()
+        count++
+    }
+    
+    elapsed := time.Since(start)
+    throughput := float64(count) / elapsed.Seconds()
+    
+    fmt.Printf("Throughput: %.2f ops/sec (%d ops in %v)\n", 
+        throughput, count, elapsed)
+}
+
+// Example usage
+func ExamplePerformanceTest() {
+    // Load test
+    handler := func(w http.ResponseWriter, r *http.Request) {
+        time.Sleep(10 * time.Millisecond) // Simulate work
+        w.WriteHeader(http.StatusOK)
+    }
+    
+    LoadTest(handler, 10, 100)
+    
+    // Throughput test
+    operation := func() {
+        data := make([]byte, 1024)
+        _ = data
+    }
+    
+    MeasureThroughput(operation, 5*time.Second)
+}

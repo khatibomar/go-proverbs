@@ -1,0 +1,79 @@
+// Outbox pattern for reliable messaging
+type OutboxEvent struct {
+    ID        string
+    EventType string
+    Payload   []byte
+    CreatedAt time.Time
+    Published bool
+}
+
+type Order struct {
+    ID       string
+    UserID   string
+    Amount   decimal.Decimal
+    Status   string
+}
+
+type OrderService struct {
+    db         *sql.DB
+    orderRepo  OrderRepository
+    outboxRepo OutboxRepository
+}
+
+// Process order and create outbox event in same transaction
+func (s *OrderService) ProcessOrder(order *Order) error {
+    tx, err := s.db.Begin()
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+    
+    // Save order
+    if err := s.orderRepo.Save(tx, order); err != nil {
+        return err
+    }
+    
+    // Create outbox event
+    event := &OutboxEvent{
+        ID:        uuid.New().String(),
+        EventType: "order.created",
+        Payload:   marshalOrder(order),
+        CreatedAt: time.Now(),
+        Published: false,
+    }
+    
+    if err := s.outboxRepo.Save(tx, event); err != nil {
+        return err
+    }
+    
+    return tx.Commit()
+}
+
+// Background publisher processes outbox events
+func (s *OrderService) PublishOutboxEvents() {
+    events, err := s.outboxRepo.GetUnpublished()
+    if err != nil {
+        log.Printf("Failed to get unpublished events: %v", err)
+        return
+    }
+    
+    for _, event := range events {
+        if err := s.publishEvent(event); err != nil {
+            log.Printf("Failed to publish event %s: %v", event.ID, err)
+            continue
+        }
+        
+        // Mark as published
+        s.outboxRepo.MarkPublished(event.ID)
+    }
+}
+
+func (s *OrderService) publishEvent(event *OutboxEvent) error {
+    // Publish to message broker (Kafka, RabbitMQ, etc.)
+    return nil // handle error
+}
+
+func marshalOrder(order *Order) []byte {
+    data, _ := json.Marshal(order)
+    return data
+}

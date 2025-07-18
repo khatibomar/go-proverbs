@@ -1,0 +1,114 @@
+// Request deduplication ensures idempotency
+type RequestResult struct {
+    Data      interface{}
+    Error     error
+    Timestamp time.Time
+}
+
+type DeduplicationCache struct {
+    cache map[string]*RequestResult
+    mu    sync.RWMutex
+    ttl   time.Duration
+}
+
+func NewDeduplicationCache(ttl time.Duration) *DeduplicationCache {
+    dc := &DeduplicationCache{
+        cache: make(map[string]*RequestResult),
+        ttl:   ttl,
+    }
+    
+    // Cleanup expired entries
+    go dc.cleanup()
+    return dc
+}
+
+func (dc *DeduplicationCache) ProcessRequest(key string, fn func() (interface{}, error)) (interface{}, error) {
+    // Check if result exists
+    if result := dc.get(key); result != nil {
+        return result.Data, result.Error
+    }
+    
+    // Execute function
+    data, err := fn()
+    
+    // Cache result
+    dc.set(key, &RequestResult{
+        Data:      data,
+        Error:     err,
+        Timestamp: time.Now(),
+    })
+    
+    return data, err
+}
+
+func (dc *DeduplicationCache) get(key string) *RequestResult {
+    dc.mu.RLock()
+    defer dc.mu.RUnlock()
+    
+    result, exists := dc.cache[key]
+    if !exists {
+        return nil
+    }
+    
+    // Check if expired
+    if time.Since(result.Timestamp) > dc.ttl {
+        return nil
+    }
+    
+    return result
+}
+
+func (dc *DeduplicationCache) set(key string, result *RequestResult) {
+    dc.mu.Lock()
+    defer dc.mu.Unlock()
+    dc.cache[key] = result
+}
+
+func (dc *DeduplicationCache) cleanup() {
+    ticker := time.NewTicker(dc.ttl / 2)
+    defer ticker.Stop()
+    
+    for range ticker.C {
+        dc.mu.Lock()
+        for key, result := range dc.cache {
+            if time.Since(result.Timestamp) > dc.ttl {
+                delete(dc.cache, key)
+            }
+        }
+        dc.mu.Unlock()
+    }
+}
+
+// HTTP handler with deduplication
+func CreateUserHandler(cache *DeduplicationCache) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        // Use idempotency key from header
+        idempotencyKey := r.Header.Get("Idempotency-Key")
+        if idempotencyKey == "" {
+            http.Error(w, "Idempotency-Key header required", http.StatusBadRequest)
+            return
+        }
+        
+        result, err := cache.ProcessRequest(idempotencyKey, func() (interface{}, error) {
+            // Expensive operation (database write, external API call, etc.)
+            user := createUser(r)
+            return user, nil
+        })
+        
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(result)
+    }
+}
+
+func createUser(r *http.Request) map[string]string {
+    // Simulate user creation
+    return map[string]string{
+        "id":   "user-" + time.Now().Format("20060102150405"),
+        "name": "John Doe",
+    }
+}

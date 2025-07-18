@@ -1,0 +1,185 @@
+// Threadcreate profiling for OS thread analysis
+
+// CGO operations that create OS threads
+func cgoHeavyOperations() {
+    // Simulate CGO calls that might create OS threads
+    for i := 0; i < 100; i++ {
+        go func(id int) {
+            // Simulate blocking system call
+            time.Sleep(time.Millisecond * 100)
+            
+            // File operations can create OS threads
+            file, err := os.CreateTemp("", fmt.Sprintf("temp-%d-*.txt", id))
+            if err == nil {
+                file.WriteString("test data")
+                file.Close()
+                os.Remove(file.Name())
+            }
+        }(i)
+    }
+}
+
+// Network operations that may create threads
+func networkOperations() {
+    var wg sync.WaitGroup
+    
+    for i := 0; i < 50; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            
+            // DNS lookups can create OS threads
+            _, err := net.LookupHost("example.com")
+            if err != nil {
+                fmt.Printf("Lookup failed for goroutine %d: %v\n", id, err)
+            }
+            
+            // HTTP requests
+            resp, err := http.Get("https://httpbin.org/delay/1")
+            if err == nil {
+                resp.Body.Close()
+            }
+        }(i)
+    }
+    
+    wg.Wait()
+}
+
+// Thread pool to limit OS thread creation
+type ThreadLimitedExecutor struct {
+    semaphore chan struct{}
+    wg        sync.WaitGroup
+}
+
+func NewThreadLimitedExecutor(maxThreads int) *ThreadLimitedExecutor {
+    return &ThreadLimitedExecutor{
+        semaphore: make(chan struct{}, maxThreads),
+    }
+}
+
+func (tle *ThreadLimitedExecutor) Execute(task func()) {
+    tle.wg.Add(1)
+    go func() {
+        defer tle.wg.Done()
+        
+        // Acquire semaphore
+        tle.semaphore <- struct{}{}
+        defer func() { <-tle.semaphore }()
+        
+        task()
+    }()
+}
+
+func (tle *ThreadLimitedExecutor) Wait() {
+    tle.wg.Wait()
+}
+
+// Monitor OS thread creation
+func monitorThreads() {
+    ticker := time.NewTicker(2 * time.Second)
+    defer ticker.Stop()
+    
+    var lastThreads int
+    
+    for i := 0; i < 10; i++ {
+        <-ticker.C
+        
+        // Get current thread count
+        var buf [64]byte
+        n := runtime.Stack(buf[:], false)
+        threads := runtime.GOMAXPROCS(0)
+        
+        // Read from /proc/self/status on Linux (simplified)
+        if runtime.GOOS == "linux" {
+            if data, err := os.ReadFile("/proc/self/status"); err == nil {
+                lines := strings.Split(string(data), "\n")
+                for _, line := range lines {
+                    if strings.HasPrefix(line, "Threads:") {
+                        fmt.Sscanf(line, "Threads:\t%d", &threads)
+                        break
+                    }
+                }
+            }
+        }
+        
+        if threads != lastThreads {
+            fmt.Printf("OS Threads: %d (change: %+d)\n", threads, threads-lastThreads)
+            lastThreads = threads
+        }
+        
+        _ = n // Use stack trace if needed
+    }
+}
+
+// Efficient file operations to minimize thread creation
+func efficientFileOps(filenames []string) error {
+    // Use a worker pool to limit concurrent file operations
+    executor := NewThreadLimitedExecutor(10)
+    
+    var mu sync.Mutex
+    var errors []error
+    
+    for _, filename := range filenames {
+        filename := filename // Capture loop variable
+        executor.Execute(func() {
+            if err := processFile(filename); err != nil {
+                mu.Lock()
+                errors = append(errors, err)
+                mu.Unlock()
+            }
+        })
+    }
+    
+    executor.Wait()
+    
+    if len(errors) > 0 {
+        return fmt.Errorf("file processing errors: %v", errors)
+    }
+    
+    return nil
+}
+
+func processFile(filename string) error {
+    // Simulate file processing
+    data := []byte("processed data for " + filename)
+    return os.WriteFile(filename, data, 0644)
+}
+
+// Control GOMAXPROCS to limit thread creation
+func optimizeForThreads() {
+    // Get current settings
+    maxProcs := runtime.GOMAXPROCS(0)
+    fmt.Printf("Current GOMAXPROCS: %d\n", maxProcs)
+    
+    // For thread-sensitive applications, you might want to limit this
+    if maxProcs > 4 {
+        runtime.GOMAXPROCS(4)
+        fmt.Println("Limited GOMAXPROCS to 4 for thread optimization")
+    }
+    
+    // Monitor goroutine to thread ratio
+    goroutines := runtime.NumGoroutine()
+    fmt.Printf("Goroutines: %d, Max OS Threads: %d\n", goroutines, maxProcs)
+}
+
+// Example of thread-creating operations to avoid
+func avoidThesePatterns() {
+    // DON'T: Create many goroutines doing blocking syscalls
+    for i := 0; i < 1000; i++ {
+        go func() {
+            time.Sleep(time.Hour) // Blocks OS thread
+        }()
+    }
+    
+    // DON'T: Uncontrolled CGO calls
+    for i := 0; i < 1000; i++ {
+        go func() {
+            // C.some_blocking_call() // Would create OS threads
+        }()
+    }
+}
+
+// Usage:
+// go run -threadcreateprofile=thread.prof main.go
+// go tool pprof thread.prof
+// (pprof) top10

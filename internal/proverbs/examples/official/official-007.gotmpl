@@ -1,0 +1,21 @@
+// Before gofmt - inconsistent style
+func   sum(  nums []int  )int{
+result:=0
+for _,n:=range nums{
+result+=n
+}
+return result
+}
+
+// After gofmt - consistent style
+func sum(nums []int) int {
+	result := 0
+	for _, n := range nums {
+		result += n
+	}
+	return result
+}
+
+// Use in CI/CD
+//go:generate go fmt ./...
+//go:generate go vet ./...

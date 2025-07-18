@@ -1,0 +1,157 @@
+// A little copying is better than a little dependency
+
+package main
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+// BAD APPROACH: Adding a dependency for simple functionality
+// Imagine importing a large package just for a simple function
+/*
+import (
+	"fmt"
+	"github.com/some/large-package" // Importing entire package for one function
+)
+
+func formatName(firstName, lastName string) string {
+	// Using the dependency for a simple string operation
+	return largepackage.FormatName(firstName, lastName)
+}
+*/
+
+// GOOD APPROACH: Copy the simple functionality instead
+
+// Simple string utility that we copied instead of importing a dependency
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// Format name using our copied utility function
+func formatName(firstName, lastName string) string {
+	return capitalizeFirst(firstName) + " " + capitalizeFirst(lastName)
+}
+
+// BAD APPROACH: Adding a dependency for a simple time calculation
+/*
+import (
+	"github.com/some/time-library" // Large dependency for simple time math
+)
+
+func isWeekend(t time.Time) bool {
+	return timelibrary.IsWeekend(t)
+}
+*/
+
+// GOOD APPROACH: Implement the simple logic directly
+func isWeekend(t time.Time) bool {
+	day := t.Weekday()
+	return day == time.Saturday || day == time.Sunday
+}
+
+// BAD APPROACH: Using a dependency for simple validation
+/*
+import (
+	"github.com/some/validation-library" // Importing for basic validation
+)
+
+func validateEmail(email string) bool {
+	return validationlibrary.IsValidEmail(email)
+}
+*/
+
+// GOOD APPROACH: Implement a simple validation function
+// Note: This is a simplified version. In production, email validation is complex.
+func validateEmail(email string) bool {
+	return strings.Contains(email, "@") && 
+		strings.Contains(email[strings.Index(email, "@"):], ".")
+}
+
+// BAD APPROACH: Using a dependency for simple data structure
+/*
+import (
+	"github.com/some/collections-library" // Large dependency for simple queue
+)
+
+func processQueue() {
+	queue := collections.NewQueue()
+	// Use the queue
+}
+*/
+
+// GOOD APPROACH: Implement a simple queue
+type Queue struct {
+	items []string
+}
+
+func NewQueue() *Queue {
+	return &Queue{items: make([]string, 0)}
+}
+
+func (q *Queue) Enqueue(item string) {
+	q.items = append(q.items, item)
+}
+
+func (q *Queue) Dequeue() (string, bool) {
+	if len(q.items) == 0 {
+		return "", false
+	}
+	item := q.items[0]
+	q.items = q.items[1:]
+	return item, true
+}
+
+// When to copy and when to use a dependency
+func whenToCopy() {
+	fmt.Println("Copy when:")
+	fmt.Println("1. The functionality is simple and well-understood")
+	fmt.Println("2. The dependency is large compared to what you need")
+	fmt.Println("3. You need only a small part of the dependency")
+	fmt.Println("4. The dependency might change in ways that break your code")
+	fmt.Println("5. You want to avoid transitive dependencies")
+}
+
+func whenToUseDependency() {
+	fmt.Println("Use a dependency when:")
+	fmt.Println("1. The functionality is complex or requires expertise")
+	fmt.Println("2. The dependency is well-maintained and stable")
+	fmt.Println("3. The dependency provides significant value")
+	fmt.Println("4. The functionality requires frequent updates")
+	fmt.Println("5. The dependency is already required elsewhere")
+}
+
+func main() {
+	// Demonstrate the copied functionality
+	fmt.Println("Formatted name:", formatName("john", "doe"))
+	
+	// Check if today is a weekend
+	fmt.Println("Is today a weekend?", isWeekend(time.Now()))
+	
+	// Validate an email
+	fmt.Println("Is email valid?", validateEmail("user@example.com"))
+	
+	// Use our simple queue
+	queue := NewQueue()
+	queue.Enqueue("item1")
+	queue.Enqueue("item2")
+	item, _ := queue.Dequeue()
+	fmt.Println("Dequeued item:", item)
+	
+	// Guidelines
+	fmt.Println("\nGuidelines:")
+	whenToCopy()
+	fmt.Println()
+	whenToUseDependency()
+	
+	fmt.Println("\nKey points:")
+	fmt.Println("1. Dependencies add complexity to your project")
+	fmt.Println("2. Dependencies can introduce security vulnerabilities")
+	fmt.Println("3. Dependencies may break or change over time")
+	fmt.Println("4. Copying simple code can be more maintainable")
+	fmt.Println("5. Balance between copying and dependencies is key")
+}

@@ -1,0 +1,58 @@
+const (
+    StatusActive   = "active"
+    StatusInactive = "inactive"
+    StatusPending  = "pending"
+    StatusSuspended = "suspended"
+)
+
+const (
+    MaxRetries = 3
+    DefaultTimeout = 30 * time.Second
+    MaxConnections = 100
+)
+
+const (
+    EventTypeLogin  = "user.login"
+    EventTypeLogout = "user.logout"
+    EventTypeCreate = "user.create"
+    EventTypeUpdate = "user.update"
+)
+
+type User struct {
+    ID     int
+    Name   string
+    Status string
+}
+
+func (u *User) IsActive() bool {
+    return u.Status == StatusActive
+}
+
+func (u *User) CanLogin() bool {
+    return u.Status == StatusActive || u.Status == StatusPending
+}
+
+func processUser(user *User) error {
+    if user.Status == StatusActive {
+        fmt.Println("Processing active user")
+        return nil
+    }
+    
+    if user.Status == StatusInactive {
+        return fmt.Errorf("user is inactive")
+    }
+    
+    return fmt.Errorf("unknown user status: %s", user.Status)
+}
+
+func retryOperation(operation func() error) error {
+    var err error
+    for i := 0; i < MaxRetries; i++ {
+        err = operation()
+        if err == nil {
+            return nil
+        }
+        time.Sleep(time.Second)
+    }
+    return fmt.Errorf("operation failed after %d retries: %w", MaxRetries, err)
+}

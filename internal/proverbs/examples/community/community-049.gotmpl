@@ -1,0 +1,38 @@
+// Use dependency injection for flexibility
+type Database interface {
+    Save(data string) error
+}
+
+type Cache interface {
+    Get(key string) (string, bool)
+    Set(key, value string)
+}
+
+type Logger interface {
+    Log(message string)
+}
+
+type Service struct {
+    db     Database
+    cache  Cache
+    logger Logger
+}
+
+func NewService(db Database, cache Cache, logger Logger) *Service {
+    return &Service{
+        db:     db,
+        cache:  cache,
+        logger: logger,
+    }
+}
+
+func (s *Service) ProcessData(data string) error {
+    s.logger.Log("Processing data")
+    
+    if cached, found := s.cache.Get(data); found {
+        s.logger.Log("Found in cache: " + cached)
+        return nil
+    }
+    
+    return s.db.Save(data)
+}

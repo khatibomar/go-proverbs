@@ -1,0 +1,65 @@
+// Bad: No clear architecture
+package main
+
+func main() {
+	// Everything mixed together
+	db := connectDB()
+	user := getUser(db, "123")
+	validateUser(user)
+	sendEmail(user.Email, "Welcome!")
+	logActivity("user_login", user.ID)
+}
+
+// Good: Clear architecture with named components
+// 1. Design the architecture
+/*
+Architecture:
+- Domain Layer: User, UserService
+- Infrastructure Layer: Database, EmailService, Logger
+- Application Layer: UserController
+*/
+
+// 2. Name the components
+type User struct {
+	ID    string
+	Email string
+	Name  string
+}
+
+type UserRepository interface {
+	GetByID(id string) (*User, error)
+}
+
+type EmailService interface {
+	Send(to, subject, body string) error
+}
+
+type Logger interface {
+	LogActivity(action, userID string)
+}
+
+// 3. Document the details
+// UserController handles user-related HTTP requests.
+// It coordinates between the domain and infrastructure layers.
+type UserController struct {
+	userRepo UserRepository
+	emailSvc EmailService
+	logger   Logger
+}
+
+// WelcomeUser handles the user welcome flow.
+// It retrieves the user, validates their data, sends a welcome email,
+// and logs the activity for audit purposes.
+func (uc *UserController) WelcomeUser(userID string) error {
+	user, err := uc.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	
+	if err := uc.emailSvc.Send(user.Email, "Welcome!", "Welcome to our service"); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	
+	uc.logger.LogActivity("user_welcome", user.ID)
+	return nil
+}

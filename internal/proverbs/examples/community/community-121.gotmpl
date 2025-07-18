@@ -1,0 +1,88 @@
+// Errors should be opaque
+// Don't depend on error message content - use error types and behaviors
+
+var (
+    ErrTimeout  = fmt.Errorf("operation timed out")
+    ErrNotFound = fmt.Errorf("resource not found")
+)
+
+// Custom error type
+type NetworkError struct {
+    Op string
+}
+
+func (e *NetworkError) Error() string {
+    return fmt.Sprintf("network %s failed", e.Op)
+}
+
+func (e *NetworkError) Temporary() bool {
+    return true
+}
+
+// BAD: Inspecting error strings (fragile)
+func handleErrorBad(err error) {
+    if err == nil {
+        return
+    }
+    // FRAGILE: breaks if error message changes
+    if strings.Contains(err.Error(), "timeout") {
+        fmt.Println("BAD: Retrying timeout...")
+        return
+    }
+    fmt.Printf("BAD: Unknown error: %v\n", err)
+}
+
+// GOOD: Using error types and Is/As
+func handleErrorGood(err error) {
+    if err == nil {
+        return
+    }
+    
+    // Check for specific errors
+    if errors.Is(err, ErrTimeout) {
+        fmt.Println("GOOD: Retrying timeout...")
+        return
+    }
+    
+    if errors.Is(err, ErrNotFound) {
+        fmt.Println("GOOD: Creating missing resource...")
+        return
+    }
+    
+    // Check for error behavior
+    var netErr *NetworkError
+    if errors.As(err, &netErr) {
+        fmt.Printf("GOOD: Network error in %s, retrying...\n", netErr.Op)
+        return
+    }
+    
+    fmt.Printf("GOOD: Unhandled error: %v\n", err)
+}
+
+func simulateError(errorType string) error {
+    switch errorType {
+    case "timeout":
+        return ErrTimeout
+    case "missing":
+        return ErrNotFound
+    case "network":
+        return &NetworkError{Op: "fetch"}
+    default:
+        return nil
+    }
+}
+
+func main() {
+    testCases := []string{"timeout", "missing", "network", "success"}
+    
+    for _, testCase := range testCases {
+        fmt.Printf("\nTesting: %s\n", testCase)
+        
+        err := simulateError(testCase)
+        
+        handleErrorBad(err)
+        handleErrorGood(err)
+    }
+    
+    fmt.Println("\nLesson: Use error types, not string inspection")
+}

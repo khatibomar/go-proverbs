@@ -1,0 +1,63 @@
+// Use hexagonal architecture for testability
+
+// Domain (core business logic)
+type User struct {
+    ID    string
+    Name  string
+    Email string
+}
+
+// Port (interface to be implemented by adapters)
+type UserRepository interface {
+    FindByID(id string) (*User, error)
+    Save(user *User) error
+}
+
+// Primary port (use case/service interface)
+type UserService interface {
+    GetUser(id string) (*User, error)
+    CreateUser(name, email string) (*User, error)
+}
+
+// Service implementation (core business logic)
+type userServiceImpl struct {
+    repo UserRepository
+}
+
+func NewUserService(repo UserRepository) UserService {
+    return &userServiceImpl{repo: repo}
+}
+
+func (s *userServiceImpl) GetUser(id string) (*User, error) {
+    return s.repo.FindByID(id)
+}
+
+func (s *userServiceImpl) CreateUser(name, email string) (*User, error) {
+    // Business validation
+    if name == "" || email == "" {
+        return nil, errors.New("name and email required")
+    }
+    
+    user := &User{
+        ID:    uuid.New().String(),
+        Name:  name,
+        Email: email,
+    }
+    
+    return user, s.repo.Save(user)
+}
+
+// Adapter (secondary/driven adapter implementation)
+type SQLUserRepository struct {
+    db *sql.DB
+}
+
+func (r *SQLUserRepository) FindByID(id string) (*User, error) {
+    // Implementation details hidden from core business logic
+    return &User{ID: id, Name: "Test User"}, nil
+}
+
+func (r *SQLUserRepository) Save(user *User) error {
+    // Implementation details hidden from core business logic
+    return nil
+}

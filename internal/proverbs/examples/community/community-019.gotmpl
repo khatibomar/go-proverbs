@@ -1,0 +1,22 @@
+// Simple cache with sync.Map for concurrent access
+var cache sync.Map
+
+func GetUser(id string) string {
+    // Check cache first
+    if val, ok := cache.Load(id); ok {
+        return val.(string)
+    }
+    
+    // Expensive operation (e.g., database query)
+    user := fetchUserFromDB(id)
+    
+    // Store in cache
+    cache.Store(id, user)
+    return user
+}
+
+func fetchUserFromDB(id string) string {
+    // Simulate expensive DB operation
+    time.Sleep(100 * time.Millisecond)
+    return "User " + id
+}
