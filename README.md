@@ -27,7 +27,7 @@ git clone https://github.com/go-proverbs/go-proverbs.git
 cd go-proverbs
 
 # Run the web server
-go run cmd/server/main.go
+go run main.go
 
 # Open http://localhost:8080 in your browser
 ```
